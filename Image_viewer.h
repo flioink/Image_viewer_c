@@ -1,0 +1,69 @@
+#pragma once
+#include <QtWidgets/QMainWindow>
+#include <QPushButton>
+class QVBoxLayout;
+class QListWidget;
+class QPushButton;
+class QLabel;
+class QHBoxLayout;
+class QListWidgetItem;
+
+
+
+
+class ImageViewer : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    ImageViewer(QWidget* parent = nullptr);   
+
+    void build_UI();
+
+    void connect_buttons();
+
+    void on_open_folder_button_pressed();
+
+    void load_images_to_list();
+
+    QPixmap scale_image_to_fit(const QPixmap& image);
+
+    void check_settings();
+
+    void display_clicked_image(QListWidgetItem* list_object);
+
+//public slots:
+
+    //void display_clicked_image(QListWidgetItem* list_object);   
+
+
+    ~ImageViewer();
+private:
+    QString m_source_folder;
+    QString m_destination_folder;
+    QString m_current_filepath;
+    QString m_settings_file;
+    QStringList m_file_list_container;
+
+    int m_scaled_max_dimension = 900;
+    
+    
+    //file list layout    
+    QVBoxLayout* m_file_layout;
+    QListWidget* m_file_list_widget; // the visible QListWidget list on the right
+    QPushButton* m_open_folder_button;
+    // image display layout
+    QVBoxLayout* m_image_layout;
+    QLabel* m_image_label; // for displaying the image
+    QLabel* m_image_info_label; // for the image name 
+    // image filter buttons
+    QHBoxLayout* m_filter_buttons_layout;
+    QPushButton* m_contour_button;
+    QPushButton* m_blur_button;
+    QPushButton* m_invert_button;
+    QPushButton* m_gray_button;
+    QPushButton* m_ascii_button;
+    
+    
+};
+

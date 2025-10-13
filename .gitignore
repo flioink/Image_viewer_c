@@ -1,0 +1,17 @@
+# Ignore everything by default
+*
+
+# But keep these:
+!*.cpp
+!*.h
+!*.css
+!CMakeLists.txt
+
+# Optional: keep the .gitignore itself
+!.gitignore
+
+# Ignore IDE and build system folders
+.idea/
+build/
+cmake-build-*/
+vcpkg_installed/
