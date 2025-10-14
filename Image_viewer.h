@@ -32,6 +32,12 @@ public:
 
     void display_clicked_image(QListWidgetItem* list_object);
 
+    void handle_image_with_cv(const QString& url, const QString& text);
+
+    void wheelEvent(QWheelEvent* event) override;
+
+    void load_image(int row);
+
 //public slots:
 
     //void display_clicked_image(QListWidgetItem* list_object);   
@@ -46,6 +52,8 @@ private:
     QStringList m_file_list_container;
 
     int m_scaled_max_dimension = 900;
+
+    int m_current_index;
     
     
     //file list layout    

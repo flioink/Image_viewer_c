@@ -14,8 +14,11 @@
 #include <QThread>
 #include <QSettings>
 #include <QListWidget>
-#include <QDebug>
 #include <QListWidgetItem>
+#include <QImageReader>
+#include <QWheelEvent>
+
+#include <opencv2/opencv.hpp>
 
 
 ImageViewer::ImageViewer(QWidget* parent)
@@ -31,10 +34,10 @@ ImageViewer::ImageViewer(QWidget* parent)
     qDebug() << "Settings file:" << m_settings.fileName();
     qDebug() << "Last saved folder: " << m_source_folder;
 
-    build_UI();
-    connect_buttons();
+    m_current_index = 0;    
 
-    
+    build_UI();
+    connect_buttons();    
     check_settings();
 }
 
@@ -163,6 +166,7 @@ void ImageViewer::load_images_to_list()
     {
         m_current_filepath = first_item;
 
+
         QPixmap mypix(first_item);
         //validity check 
         if (mypix.isNull()) { qDebug() << "Failed to load image"; }
@@ -183,7 +187,7 @@ void ImageViewer::load_images_to_list()
 
 QPixmap ImageViewer::scale_image_to_fit(const QPixmap& image)
 {
-    //Resizes a pixmap object to fit the UI 
+    // resizes the pixmap object proportionally to fit the UI 
        
     auto pixmap = image.scaled(
         m_scaled_max_dimension,
@@ -200,6 +204,9 @@ void ImageViewer::check_settings()
 {
     qDebug() << "Current source folder" << m_source_folder;
     load_images_to_list();
+
+    auto initial_path = m_file_list_container[0];
+    m_image_info_label->setText(initial_path);
 }
 
 void ImageViewer::display_clicked_image(QListWidgetItem* list_object)
@@ -208,15 +215,89 @@ void ImageViewer::display_clicked_image(QListWidgetItem* list_object)
     m_image_info_label->setText(text);// set the info label to show the url
 
     auto row = m_file_list_widget->row(list_object);// getting the row in the widget
+
     if (row >= 0 && row < m_file_list_container.size())
     {
-        auto url = m_file_list_container[row]; // contains the full paths already
-        qDebug() << "URL Data: " << url;
-        QPixmap mypix(url);
-        //validity check 
-        if (mypix.isNull()) { qDebug() << "Failed to load image"; }
+        m_current_index = row; //set the current index on selected
 
-        m_image_label->setPixmap(scale_image_to_fit(mypix));
-    }
+        qDebug() << "current index: " << m_current_index;
+
+        auto url = m_file_list_container[row]; // contains the full paths already
+        //qDebug() << "URL Data: " << url;        
+
+        QPixmap mypix_qt(url);
+        // check if it's loaded in the QPixmap object
+        if (!mypix_qt.isNull())
+            m_image_label->setPixmap(scale_image_to_fit(mypix_qt));
+        else
+        {
+            handle_image_with_cv(url, text);
+        }
+    }      
+        
+ }    
     
+void ImageViewer::handle_image_with_cv(const QString& url, const QString& text)
+{
+    cv::Mat mypix = cv::imread(url.toStdString());
+
+    // use openCV to open it
+    if (!mypix.empty())
+    {
+        // convert BGR to RGB for Qt
+        cv::cvtColor(mypix, mypix, cv::COLOR_BGR2RGB);
+        QImage qimage(mypix.data, mypix.cols, mypix.rows, mypix.step, QImage::Format_RGB888);
+        QPixmap pixmap = QPixmap::fromImage(qimage);
+        m_image_label->setPixmap(scale_image_to_fit(pixmap));
+        qDebug() << "OpenCV used to open the image " << text;
+    }
+
+    else
+    {   // if it fails again just display a warning
+        m_image_label->setText("Unknown image format");
+        m_image_info_label->setText("WARNING, unknown format: " + text);// set the info label to show warning + the image name
+        qDebug() << "Supported image formats:" << QImageReader::supportedImageFormats();
+    }        
+}
+
+void ImageViewer::wheelEvent(QWheelEvent* event)
+{
+    auto delta = event->angleDelta().y();
+
+    if (delta > 0) // rotating the mouse wheel away from you is considered UP
+    {
+        m_current_index = (m_current_index == 0) ? m_file_list_container.size() - 1 : m_current_index - 1;
+        // if at start wrap to end OR just go one down
+    }
+    else // rotating the mouse wheel away from you is considered DOWN
+    {
+        m_current_index = (m_current_index == m_file_list_container.size() - 1) ? 0 : m_current_index + 1;
+        // if at end go at start OR just go one up
+    }
+    qDebug() << "Scrolling index: " << m_current_index;
+    qDebug() << "Delta value " << delta;
+
+    load_image(m_current_index);
+
+
+}
+
+void ImageViewer::load_image(int row)
+{
+
+    auto url = m_file_list_container[row]; // contains the full paths already
+    //qDebug() << "URL Data: " << url;        
+
+    QPixmap mypix_qt(url);
+    // check if it's loaded in the QPixmap object
+    if (!mypix_qt.isNull())
+    {
+        m_image_label->setPixmap(scale_image_to_fit(mypix_qt));
+        m_image_info_label->setText(url);
+    }
+       
+    else
+    {
+        handle_image_with_cv(url, url);
+    }
 }
