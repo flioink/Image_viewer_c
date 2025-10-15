@@ -16,7 +16,9 @@ class ImageViewer : public QMainWindow
     Q_OBJECT
 
 public:
-    ImageViewer(QWidget* parent = nullptr);   
+    ImageViewer(QWidget* parent = nullptr);
+
+    QPixmap scale_image_to_fit(const QPixmap& image);
 
     void build_UI();
 
@@ -24,9 +26,7 @@ public:
 
     void on_open_folder_button_pressed();
 
-    void load_images_to_list();
-
-    QPixmap scale_image_to_fit(const QPixmap& image);
+    void load_images_to_list();    
 
     void check_settings();
 
@@ -38,10 +38,10 @@ public:
 
     void load_image(int row);
 
-//public slots:
+    // filters
+    void contour();
 
-    //void display_clicked_image(QListWidgetItem* list_object);   
-
+    void reset_image();
 
     ~ImageViewer();
 private:
@@ -50,6 +50,7 @@ private:
     QString m_current_filepath;
     QString m_settings_file;
     QStringList m_file_list_container;
+    QPixmap m_current_image;
 
     int m_scaled_max_dimension = 900;
 
@@ -66,6 +67,7 @@ private:
     QLabel* m_image_info_label; // for the image name 
     // image filter buttons
     QHBoxLayout* m_filter_buttons_layout;
+    QPushButton* m_reset_image_button;
     QPushButton* m_contour_button;
     QPushButton* m_blur_button;
     QPushButton* m_invert_button;

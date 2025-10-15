@@ -17,6 +17,7 @@
 #include <QListWidgetItem>
 #include <QImageReader>
 #include <QWheelEvent>
+#include <QApplication>
 
 #include <opencv2/opencv.hpp>
 
@@ -25,14 +26,21 @@ ImageViewer::ImageViewer(QWidget* parent)
     : QMainWindow(parent)
 {
     setWindowTitle("Image Viewer");
-    setFixedSize(1600, 1000);
+    setMinimumSize(1920, 1000);
+    move(0, 0);
 
     QSettings m_settings;
     QString last_source = m_settings.value("source_folder", "").toString();
     m_source_folder = last_source;
 
-    qDebug() << "Settings file:" << m_settings.fileName();
-    qDebug() << "Last saved folder: " << m_source_folder;
+
+    // screen dependent image scaling
+    QScreen* screen = QApplication::primaryScreen();
+    QRect screen_geometry = screen->availableGeometry();
+    qDebug() << "Screen geometry: " << screen_geometry;
+    m_scaled_max_dimension = qMin(screen_geometry.height(), screen_geometry.width()) * 0.9;
+
+    
 
     m_current_index = 0;    
 
@@ -44,6 +52,7 @@ ImageViewer::ImageViewer(QWidget* parent)
 ImageViewer::~ImageViewer()
 {}
 
+// set the UI here
 void ImageViewer::build_UI()
 {
     // create the master layout
@@ -69,11 +78,13 @@ void ImageViewer::build_UI()
 
     // buttons
     m_filter_buttons_layout = new QHBoxLayout();
+    m_reset_image_button = new QPushButton("Reset image", this);
     m_contour_button = new QPushButton("Contour", this);
     m_blur_button = new QPushButton("Blur", this);;
     m_invert_button = new QPushButton("Invert", this);;
     m_gray_button = new QPushButton("Gray", this);;
     m_ascii_button = new QPushButton("ASCII", this);;
+    m_filter_buttons_layout->addWidget(m_reset_image_button);
     m_filter_buttons_layout->addWidget(m_contour_button);
     m_filter_buttons_layout->addWidget(m_blur_button);
     m_filter_buttons_layout->addWidget(m_invert_button);
@@ -89,18 +100,25 @@ void ImageViewer::build_UI()
     master_layout->addLayout(m_image_layout, 3);
     master_layout->setAlignment(Qt::AlignTop);
 
-    setCentralWidget(central_widget);
+    this->setCentralWidget(central_widget);
 
     
 
 
 }
-//connect(browse_source_button, &QPushButton::clicked, this, &MainWindow::on_browse_source_clicked);
 
+// set the buttons connections here
 void ImageViewer::connect_buttons()
 {
-    connect(m_open_folder_button, &QPushButton::clicked, this, &ImageViewer::on_open_folder_button_pressed);
+    // the list widget
     connect(m_file_list_widget, &QListWidget::itemClicked, this, &ImageViewer::display_clicked_image);
+    // open folder button
+    connect(m_open_folder_button, &QPushButton::clicked, this, &ImageViewer::on_open_folder_button_pressed);
+    // contour filter button
+    connect(m_contour_button, &QPushButton::clicked, this, &ImageViewer::contour);
+
+    // reset
+    connect(m_reset_image_button, &QPushButton::clicked, this, &ImageViewer::reset_image);
 
     
 }
@@ -108,9 +126,7 @@ void ImageViewer::connect_buttons()
 void ImageViewer::on_open_folder_button_pressed()
 {
     //take the output and put it in a QString
-    QString folder = QFileDialog::getExistingDirectory(this, "Select a source folder");
-
-    
+    QString folder = QFileDialog::getExistingDirectory(this, "Select a source folder");   
     
 
     if (!folder.isEmpty())// this ckeck is ok, but setting to an empty folder as long as it's valid is also ok
@@ -121,27 +137,23 @@ void ImageViewer::on_open_folder_button_pressed()
 
         load_images_to_list();        
 
-        qDebug() << "Source folder set: " << m_source_folder;
-        qDebug() << "Settings filename:" << m_settings.fileName();
-        qDebug() << "Settings status:" << m_settings.status();
+        qDebug() << "Source folder set: " << m_source_folder;       
     }
 
     else
     {
-
         this->m_source_folder.clear();  
 
         qDebug() << "Invalid path choice. Unable to set source folder!";
-
     }
 }
 
 void ImageViewer::load_images_to_list()
 {
-    qDebug() << "Loading file paths";
+    
     m_file_list_container.clear();  // Clearing the current list of urls
 
-    QDir dir(m_source_folder); // This converts the member to the type of object the library can check?
+    QDir dir(m_source_folder); // This converts the member to the type of object the library can check
 
     if (!dir.exists())
     {
@@ -151,11 +163,11 @@ void ImageViewer::load_images_to_list()
     //File types
     QStringList filters = { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.tiff", "*.webp" };
 
-    QStringList files = dir.entryList(filters, QDir::Files); // a dedicated filter?
+    QStringList files = dir.entryList(filters, QDir::Files); // filtering the files with the right extensions
 
     for (const QString& file_name : files) 
     {
-        QString full_path = dir.absoluteFilePath(file_name);
+        QString full_path = dir.absoluteFilePath(file_name); // reconstruct the full path for each file
         m_file_list_container.append(full_path);
         m_file_list_widget->addItem(file_name);
     }
@@ -165,17 +177,8 @@ void ImageViewer::load_images_to_list()
     if (first_item != "")
     {
         m_current_filepath = first_item;
-
-
-        QPixmap mypix(first_item);
-        //validity check 
-        if (mypix.isNull()) { qDebug() << "Failed to load image"; }
-
-        m_image_label->setStyleSheet("border: 2px solid gray;");
-
-        m_image_label->setPixmap(scale_image_to_fit(mypix));
-       
-
+        load_image(0);
+        //m_image_label->setStyleSheet("border: 2px solid gray;");
     }
 
     qDebug() << "Found: " << m_file_list_container.size() << " image files";
@@ -188,8 +191,16 @@ void ImageViewer::load_images_to_list()
 QPixmap ImageViewer::scale_image_to_fit(const QPixmap& image)
 {
     // resizes the pixmap object proportionally to fit the UI 
+
+
+    // if the current image is below the threshold just kepp it as is
+    if (image.height() < m_scaled_max_dimension && image.width() < m_scaled_max_dimension)
+    {
+        return image;
+    }
        
-    auto pixmap = image.scaled(
+    auto pixmap = image.scaled
+    (
         m_scaled_max_dimension,
         m_scaled_max_dimension,
         Qt::KeepAspectRatio,
@@ -206,6 +217,7 @@ void ImageViewer::check_settings()
     load_images_to_list();
 
     auto initial_path = m_file_list_container[0];
+    //m_current_filepath = initial_path;
     m_image_info_label->setText(initial_path);
 }
 
@@ -223,12 +235,18 @@ void ImageViewer::display_clicked_image(QListWidgetItem* list_object)
         qDebug() << "current index: " << m_current_index;
 
         auto url = m_file_list_container[row]; // contains the full paths already
-        //qDebug() << "URL Data: " << url;        
+        m_current_filepath = url;
 
         QPixmap mypix_qt(url);
         // check if it's loaded in the QPixmap object
         if (!mypix_qt.isNull())
+        {
             m_image_label->setPixmap(scale_image_to_fit(mypix_qt));
+
+            // store current image
+            m_current_image = mypix_qt;
+        }
+            
         else
         {
             handle_image_with_cv(url, text);
@@ -240,6 +258,7 @@ void ImageViewer::display_clicked_image(QListWidgetItem* list_object)
 void ImageViewer::handle_image_with_cv(const QString& url, const QString& text)
 {
     cv::Mat mypix = cv::imread(url.toStdString());
+    m_current_filepath = url;
 
     // use openCV to open it
     if (!mypix.empty())
@@ -249,6 +268,9 @@ void ImageViewer::handle_image_with_cv(const QString& url, const QString& text)
         QImage qimage(mypix.data, mypix.cols, mypix.rows, mypix.step, QImage::Format_RGB888);
         QPixmap pixmap = QPixmap::fromImage(qimage);
         m_image_label->setPixmap(scale_image_to_fit(pixmap));
+
+        // add to memeber variable to store current image
+        m_current_image = pixmap;
         qDebug() << "OpenCV used to open the image " << text;
     }
 
@@ -287,6 +309,8 @@ void ImageViewer::load_image(int row)
 
     auto url = m_file_list_container[row]; // contains the full paths already
     //qDebug() << "URL Data: " << url;        
+    m_current_filepath = url;
+
 
     QPixmap mypix_qt(url);
     // check if it's loaded in the QPixmap object
@@ -294,10 +318,42 @@ void ImageViewer::load_image(int row)
     {
         m_image_label->setPixmap(scale_image_to_fit(mypix_qt));
         m_image_info_label->setText(url);
+
+        // store current image
+        m_current_image = mypix_qt;
     }
        
     else
     {
         handle_image_with_cv(url, url);
     }
+}
+
+void ImageViewer::contour()
+{
+    cv::Mat pix2contour = cv::imread(m_current_filepath.toStdString());
+    cv::cvtColor(pix2contour, pix2contour, cv::COLOR_RGB2GRAY); // in place conversion
+
+    //contouring happening here 
+
+    cv::GaussianBlur(pix2contour, pix2contour, cv::Size(3, 3), 1.5);
+
+    cv::Mat edges;
+
+    cv::Canny(pix2contour, edges, 50, 150);
+
+    cv::GaussianBlur(edges, edges, cv::Size(3, 3), 1.5);
+    cv::bitwise_not(edges, edges);// invert
+
+    // convert back to pixmap
+    QImage qimage(edges.data, edges.cols, edges.rows, edges.step, QImage::Format_Grayscale8);
+    QPixmap pixmap = QPixmap::fromImage(qimage);
+
+    m_image_label->setPixmap(scale_image_to_fit(pixmap));
+    m_image_info_label->setText("Grayscaled: " + m_current_filepath);
+}
+
+void ImageViewer::reset_image()
+{
+    load_image(m_current_index);
 }
