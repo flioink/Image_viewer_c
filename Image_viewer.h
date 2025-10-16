@@ -1,12 +1,17 @@
 #pragma once
 #include <QtWidgets/QMainWindow>
 #include <QPushButton>
+
 class QVBoxLayout;
 class QListWidget;
 class QPushButton;
 class QLabel;
 class QHBoxLayout;
 class QListWidgetItem;
+
+class ImageConverter;
+class QPixmap;
+class Mat;
 
 
 
@@ -43,6 +48,10 @@ public:
 
     void reset_image();
 
+    void convert_to_ascii();
+
+    //QPixmap cv_to_qpixmap_converter(cv::Mat& cv_img);// format converter
+
     ~ImageViewer();
 private:
     QString m_source_folder;
@@ -53,9 +62,9 @@ private:
     QPixmap m_current_image;
 
     int m_scaled_max_dimension = 900;
+    int m_current_index; // tracking the current image
 
-    int m_current_index;
-    
+    ImageConverter* m_ascii_converter;
     
     //file list layout    
     QVBoxLayout* m_file_layout;

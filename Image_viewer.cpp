@@ -21,6 +21,10 @@
 
 #include <opencv2/opencv.hpp>
 
+#include "ascii_converter.h"
+
+
+
 
 ImageViewer::ImageViewer(QWidget* parent)
     : QMainWindow(parent)
@@ -42,7 +46,9 @@ ImageViewer::ImageViewer(QWidget* parent)
 
     
 
-    m_current_index = 0;    
+    m_current_index = 0;
+
+    m_ascii_converter = new ImageConverter(70);
 
     build_UI();
     connect_buttons();    
@@ -112,14 +118,18 @@ void ImageViewer::connect_buttons()
 {
     // the list widget
     connect(m_file_list_widget, &QListWidget::itemClicked, this, &ImageViewer::display_clicked_image);
+
     // open folder button
-    connect(m_open_folder_button, &QPushButton::clicked, this, &ImageViewer::on_open_folder_button_pressed);
-    // contour filter button
-    connect(m_contour_button, &QPushButton::clicked, this, &ImageViewer::contour);
+    connect(m_open_folder_button, &QPushButton::clicked, this, &ImageViewer::on_open_folder_button_pressed);  
 
     // reset
     connect(m_reset_image_button, &QPushButton::clicked, this, &ImageViewer::reset_image);
 
+    // contour filter button
+    connect(m_contour_button, &QPushButton::clicked, this, &ImageViewer::contour);
+
+    //ASCII converter button
+    connect(m_ascii_button, &QPushButton::clicked, this, &ImageViewer::convert_to_ascii);
     
 }
 
@@ -178,6 +188,7 @@ void ImageViewer::load_images_to_list()
     {
         m_current_filepath = first_item;
         load_image(0);
+        m_file_list_widget->setCurrentRow(m_current_index);
         //m_image_label->setStyleSheet("border: 2px solid gray;");
     }
 
@@ -290,14 +301,21 @@ void ImageViewer::wheelEvent(QWheelEvent* event)
     {
         m_current_index = (m_current_index == 0) ? m_file_list_container.size() - 1 : m_current_index - 1;
         // if at start wrap to end OR just go one down
+
+        m_current_filepath = m_file_list_container[m_current_index];
+
+        m_file_list_widget->setCurrentRow(m_current_index);// set list widget marker to current index
     }
-    else // rotating the mouse wheel away from you is considered DOWN
+    else // rotating the mouse wheel towards you is considered DOWN
     {
         m_current_index = (m_current_index == m_file_list_container.size() - 1) ? 0 : m_current_index + 1;
         // if at end go at start OR just go one up
+
+        m_current_filepath = m_file_list_container[m_current_index];
+
+        m_file_list_widget->setCurrentRow(m_current_index);// set list widget marker to current index
     }
-    qDebug() << "Scrolling index: " << m_current_index;
-    qDebug() << "Delta value " << delta;
+    
 
     load_image(m_current_index);
 
@@ -357,3 +375,29 @@ void ImageViewer::reset_image()
 {
     load_image(m_current_index);
 }
+
+void ImageViewer::convert_to_ascii()
+{
+    auto path = m_current_filepath.toStdString();
+
+    qDebug() << "Current filepath: " << path;
+
+    cv::Mat cv_img = m_ascii_converter->process(path);
+
+    
+    cv::cvtColor(cv_img, cv_img, cv::COLOR_BGR2RGB);
+    QImage qimage(cv_img.data, cv_img.cols, cv_img.rows, cv_img.step, QImage::Format_RGB888);
+    QPixmap pixmap = QPixmap::fromImage(qimage);
+
+    m_image_label->setPixmap(scale_image_to_fit(pixmap));
+    
+}
+
+//QPixmap cv_to_qpixmap_converter(cv::Mat& cv_img)
+//{
+//    cv::cvtColor(cv_img, cv_img, cv::COLOR_BGR2RGB);
+//    QImage qimage(cv_img.data, cv_img.cols, cv_img.rows, cv_img.step, QImage::Format_RGB888);
+//    QPixmap pixmap = QPixmap::fromImage(qimage);
+//
+//    return pixmap;
+//}
