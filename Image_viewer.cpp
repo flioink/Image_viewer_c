@@ -18,18 +18,64 @@
 #include <QImageReader>
 #include <QWheelEvent>
 #include <QApplication>
-
 #include <opencv2/opencv.hpp>
-
 #include "ascii_converter.h"
 
 
+// helper converter from cv::Mat to QPixmap
+static QPixmap cv_to_qpixmap_converter(cv::Mat& cv_img)
+{
+    cv::cvtColor(cv_img, cv_img, cv::COLOR_BGR2RGB);
+    QImage qimage(cv_img.data, cv_img.cols, cv_img.rows, cv_img.step, QImage::Format_RGB888);
 
+    return QPixmap::fromImage(qimage);
+}
+
+// shorten the url to just the file name for display purposes
+//static QString truncate_url_to_image_name(const QString& s)
+//{
+//    string tmp = s.toStdString();
+//    int found = tmp.find_last_of('/');
+//
+//    if (found != 0)
+//    {
+//        string filename = tmp.substr(found + 1, tmp.length());
+//        QString q_filename = QString::fromStdString(filename);
+//        qDebug() << "TRUNCATED: " << q_filename;
+//
+//        return q_filename;
+//    }
+//
+//    return QString("N/A");
+//}
+
+// shorten the url to just the file name for display purposes
+static QString truncate_url_to_image_name(const QString& path)
+{
+    QFileInfo fileInfo(path);
+    return fileInfo.fileName();
+}
+
+// build an info string
+static QString set_info_string(int index, int n_files, const QString& file_name)
+{
+    // info for the current image
+    QString image_info = QString("Current image %1 out of %2 files: %3")
+        .arg(index)
+        .arg(n_files)
+        .arg(file_name);
+
+    return image_info;
+}
+
+
+//////////////////////////////////////// class definition
 
 ImageViewer::ImageViewer(QWidget* parent)
     : QMainWindow(parent)
 {
     setWindowTitle("Image Viewer");
+    setWindowIcon(QIcon("viewer_icon.png"));
     setMinimumSize(1920, 1000);
     move(0, 0);
 
@@ -68,9 +114,19 @@ void ImageViewer::build_UI()
     // file layout
     m_file_layout = new QVBoxLayout();
     m_file_list_widget = new QListWidget();
+
+    m_file_buttons_layout = new QHBoxLayout;
+
     m_open_folder_button = new QPushButton("Open", this);
+    m_rescan_folder_button = new QPushButton("Rescan folder", this);
+    m_file_buttons_layout->addWidget(m_open_folder_button);
+    m_file_buttons_layout->addWidget(m_rescan_folder_button);
+
     m_file_layout->addWidget(m_file_list_widget);
-    m_file_layout->addWidget(m_open_folder_button);
+    m_file_layout->addLayout(m_file_buttons_layout);
+
+    //m_file_layout->addWidget(m_open_folder_button);
+    //m_file_layout->addWidget(m_rescan_folder_button);
 
     // image layout
     m_image_layout = new QVBoxLayout();
@@ -97,7 +153,7 @@ void ImageViewer::build_UI()
     m_filter_buttons_layout->addWidget(m_gray_button);
     
     m_filter_buttons_layout->addWidget(m_ascii_button);
-    //
+    // add the fileter butons below the image display
     m_image_layout->addLayout(m_filter_buttons_layout);
 
 
@@ -107,29 +163,35 @@ void ImageViewer::build_UI()
     master_layout->setAlignment(Qt::AlignTop);
 
     this->setCentralWidget(central_widget);
-
-    
-
-
 }
 
 // set the buttons connections here
 void ImageViewer::connect_buttons()
 {
-    // the list widget
+    // List widget click
     connect(m_file_list_widget, &QListWidget::itemClicked, this, &ImageViewer::display_clicked_image);
 
-    // open folder button
+    // Open folder button
     connect(m_open_folder_button, &QPushButton::clicked, this, &ImageViewer::on_open_folder_button_pressed);  
+    connect(m_rescan_folder_button, &QPushButton::clicked, this, &ImageViewer::load_images_to_list);
 
-    // reset
+    // Reset image
     connect(m_reset_image_button, &QPushButton::clicked, this, &ImageViewer::reset_image);
 
-    // contour filter button
+    // Contour filter 
     connect(m_contour_button, &QPushButton::clicked, this, &ImageViewer::contour);
 
-    //ASCII converter button
+    // ASCII converter button
     connect(m_ascii_button, &QPushButton::clicked, this, &ImageViewer::convert_to_ascii);
+
+    // Grayscale filter
+    connect(m_gray_button, &QPushButton::clicked, this, &ImageViewer::convert_to_grayscale);
+
+    // Blur filter
+    connect(m_blur_button, &QPushButton::clicked, this, &ImageViewer::blur_image);
+
+    // Invert filter
+    connect(m_invert_button, &QPushButton::clicked, this, &ImageViewer::invert_image);
     
 }
 
@@ -139,7 +201,7 @@ void ImageViewer::on_open_folder_button_pressed()
     QString folder = QFileDialog::getExistingDirectory(this, "Select a source folder");   
     
 
-    if (!folder.isEmpty())// this ckeck is ok, but setting to an empty folder as long as it's valid is also ok
+    if (!folder.isEmpty())
     {
         QSettings m_settings;
         m_settings.setValue("source_folder", folder);
@@ -162,6 +224,8 @@ void ImageViewer::load_images_to_list()
 {
     
     m_file_list_container.clear();  // Clearing the current list of urls
+    m_file_list_widget->clear();
+
 
     QDir dir(m_source_folder); // This converts the member to the type of object the library can check
 
@@ -188,13 +252,20 @@ void ImageViewer::load_images_to_list()
     {
         m_current_filepath = first_item;
         load_image(0);
-        m_file_list_widget->setCurrentRow(m_current_index);
-        //m_image_label->setStyleSheet("border: 2px solid gray;");
+        m_current_index = 0;
+        m_file_list_widget->setCurrentRow(0);        
+
+
+
+        // store total files number
+        m_number_of_files = m_file_list_container.size();
+
+
+        // refresh info for the first image
+        auto first_image_name = truncate_url_to_image_name(first_item);
+        QString image_info = set_info_string(m_current_index + 1, m_number_of_files, first_image_name);
+        m_image_info_label->setText(image_info);
     }
-
-    qDebug() << "Found: " << m_file_list_container.size() << " image files";
-    qDebug() << "First file in the container: " << m_file_list_container[0] << " image files";
-
 }
 
 
@@ -228,31 +299,41 @@ void ImageViewer::check_settings()
     load_images_to_list();
 
     auto initial_path = m_file_list_container[0];
-    //m_current_filepath = initial_path;
-    m_image_info_label->setText(initial_path);
+    initial_path = truncate_url_to_image_name(initial_path);
+
+    // info for the current image
+    QString image_info = set_info_string(m_current_index + 1, m_number_of_files, initial_path);
+
+    m_image_info_label->setText(image_info);
 }
 
 void ImageViewer::display_clicked_image(QListWidgetItem* list_object)
 {
     auto text = list_object->text();// get the text
-    m_image_info_label->setText(text);// set the info label to show the url
+    //m_image_info_label->setText(text);// set the info label to show the url
+
+    
 
     auto row = m_file_list_widget->row(list_object);// getting the row in the widget
 
     if (row >= 0 && row < m_file_list_container.size())
     {
-        m_current_index = row; //set the current index on selected
-
-        qDebug() << "current index: " << m_current_index;
+        m_current_index = row; //set the current index on selected        
 
         auto url = m_file_list_container[row]; // contains the full paths already
         m_current_filepath = url;
 
         QPixmap mypix_qt(url);
         // check if it's loaded in the QPixmap object
+
+
         if (!mypix_qt.isNull())
         {
             m_image_label->setPixmap(scale_image_to_fit(mypix_qt));
+
+            // set info
+            QString image_info = set_info_string(m_current_index + 1, m_number_of_files, text);
+            m_image_info_label->setText(image_info);
 
             // store current image
             m_current_image = mypix_qt;
@@ -274,10 +355,8 @@ void ImageViewer::handle_image_with_cv(const QString& url, const QString& text)
     // use openCV to open it
     if (!mypix.empty())
     {
-        // convert BGR to RGB for Qt
-        cv::cvtColor(mypix, mypix, cv::COLOR_BGR2RGB);
-        QImage qimage(mypix.data, mypix.cols, mypix.rows, mypix.step, QImage::Format_RGB888);
-        QPixmap pixmap = QPixmap::fromImage(qimage);
+       
+        auto pixmap = cv_to_qpixmap_converter(mypix);
         m_image_label->setPixmap(scale_image_to_fit(pixmap));
 
         // add to memeber variable to store current image
@@ -305,6 +384,8 @@ void ImageViewer::wheelEvent(QWheelEvent* event)
         m_current_filepath = m_file_list_container[m_current_index];
 
         m_file_list_widget->setCurrentRow(m_current_index);// set list widget marker to current index
+
+        
     }
     else // rotating the mouse wheel towards you is considered DOWN
     {
@@ -314,6 +395,8 @@ void ImageViewer::wheelEvent(QWheelEvent* event)
         m_current_filepath = m_file_list_container[m_current_index];
 
         m_file_list_widget->setCurrentRow(m_current_index);// set list widget marker to current index
+
+        
     }
     
 
@@ -328,14 +411,20 @@ void ImageViewer::load_image(int row)
     auto url = m_file_list_container[row]; // contains the full paths already
     //qDebug() << "URL Data: " << url;        
     m_current_filepath = url;
-
-
     QPixmap mypix_qt(url);
+
+
     // check if it's loaded in the QPixmap object
     if (!mypix_qt.isNull())
     {
         m_image_label->setPixmap(scale_image_to_fit(mypix_qt));
-        m_image_info_label->setText(url);
+
+        auto file_name = truncate_url_to_image_name(url);
+
+        // info for the current image
+        QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
+
+        m_image_info_label->setText(image_info);
 
         // store current image
         m_current_image = mypix_qt;
@@ -346,18 +435,16 @@ void ImageViewer::load_image(int row)
         handle_image_with_cv(url, url);
     }
 }
-
+// FILTERS
 void ImageViewer::contour()
 {
     cv::Mat pix2contour = cv::imread(m_current_filepath.toStdString());
     cv::cvtColor(pix2contour, pix2contour, cv::COLOR_RGB2GRAY); // in place conversion
 
     //contouring happening here 
-
     cv::GaussianBlur(pix2contour, pix2contour, cv::Size(3, 3), 1.5);
 
     cv::Mat edges;
-
     cv::Canny(pix2contour, edges, 50, 150);
 
     cv::GaussianBlur(edges, edges, cv::Size(3, 3), 1.5);
@@ -368,7 +455,10 @@ void ImageViewer::contour()
     QPixmap pixmap = QPixmap::fromImage(qimage);
 
     m_image_label->setPixmap(scale_image_to_fit(pixmap));
-    m_image_info_label->setText("Grayscaled: " + m_current_filepath);
+
+    auto file_name = truncate_url_to_image_name(m_current_filepath);
+    QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
+    m_image_info_label->setText("Contour " + image_info);
 }
 
 void ImageViewer::reset_image()
@@ -378,26 +468,62 @@ void ImageViewer::reset_image()
 
 void ImageViewer::convert_to_ascii()
 {
-    auto path = m_current_filepath.toStdString();
+    auto file_name = truncate_url_to_image_name(m_current_filepath);
+    auto path = m_current_filepath.toStdString();   
 
-    qDebug() << "Current filepath: " << path;
+    cv::Mat cv_img = m_ascii_converter->process(path);     
 
-    cv::Mat cv_img = m_ascii_converter->process(path);
-
-    
-    cv::cvtColor(cv_img, cv_img, cv::COLOR_BGR2RGB);
-    QImage qimage(cv_img.data, cv_img.cols, cv_img.rows, cv_img.step, QImage::Format_RGB888);
-    QPixmap pixmap = QPixmap::fromImage(qimage);
+    auto pixmap = cv_to_qpixmap_converter(cv_img);
 
     m_image_label->setPixmap(scale_image_to_fit(pixmap));
+
+    // set info
+    QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
+    m_image_info_label->setText("ASCII " + image_info);
     
 }
 
-//QPixmap cv_to_qpixmap_converter(cv::Mat& cv_img)
-//{
-//    cv::cvtColor(cv_img, cv_img, cv::COLOR_BGR2RGB);
-//    QImage qimage(cv_img.data, cv_img.cols, cv_img.rows, cv_img.step, QImage::Format_RGB888);
-//    QPixmap pixmap = QPixmap::fromImage(qimage);
-//
-//    return pixmap;
-//}
+void ImageViewer::convert_to_grayscale()
+{
+    cv::Mat pix2gray = cv::imread(m_current_filepath.toStdString());
+    cv::cvtColor(pix2gray, pix2gray, cv::COLOR_RGB2GRAY); // in place conversion
+
+    auto pixmap = cv_to_qpixmap_converter(pix2gray);
+
+    m_image_label->setPixmap(scale_image_to_fit(pixmap));
+    auto file_name = truncate_url_to_image_name(m_current_filepath);
+    QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
+    m_image_info_label->setText("Grayscale " + image_info);
+}
+
+void ImageViewer::blur_image()
+{
+    cv::Mat pix2blur = cv::imread(m_current_filepath.toStdString());
+    
+    //blurring happening here 
+    cv::GaussianBlur(pix2blur, pix2blur, cv::Size(9, 9), 55);
+
+    auto pixmap = cv_to_qpixmap_converter(pix2blur);
+
+    m_image_label->setPixmap(scale_image_to_fit(pixmap));
+
+    auto file_name = truncate_url_to_image_name(m_current_filepath);
+    QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
+    m_image_info_label->setText("Blur " + image_info);
+}
+
+void ImageViewer::invert_image()
+{
+    cv::Mat pix_input = cv::imread(m_current_filepath.toStdString());
+
+    cv::Mat pix_output;
+    cv::bitwise_not(pix_input, pix_output);
+
+    auto pixmap = cv_to_qpixmap_converter(pix_output);
+
+    m_image_label->setPixmap(scale_image_to_fit(pixmap));
+
+    auto file_name = truncate_url_to_image_name(m_current_filepath);
+    QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
+    m_image_info_label->setText("Invert " + image_info);
+}

@@ -50,6 +50,13 @@ public:
 
     void convert_to_ascii();
 
+    void convert_to_grayscale();
+
+    void blur_image();
+
+    void invert_image();
+
+   
     //QPixmap cv_to_qpixmap_converter(cv::Mat& cv_img);// format converter
 
     ~ImageViewer();
@@ -63,6 +70,7 @@ private:
 
     int m_scaled_max_dimension = 900;
     int m_current_index; // tracking the current image
+    int m_number_of_files;
 
     ImageConverter* m_ascii_converter;
     
@@ -70,6 +78,8 @@ private:
     QVBoxLayout* m_file_layout;
     QListWidget* m_file_list_widget; // the visible QListWidget list on the right
     QPushButton* m_open_folder_button;
+    QPushButton* m_rescan_folder_button;
+    QHBoxLayout* m_file_buttons_layout;
     // image display layout
     QVBoxLayout* m_image_layout;
     QLabel* m_image_label; // for displaying the image

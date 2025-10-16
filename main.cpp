@@ -3,9 +3,11 @@
 
 
 int main(int argc, char *argv[])
-{   
+{
+    // required for the save system
     QCoreApplication::setOrganizationName("flioink");
     QCoreApplication::setApplicationName("Image Viewer App");
+
     QApplication app(argc, argv);
     ImageViewer window;
     window.show();
