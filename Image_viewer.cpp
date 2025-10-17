@@ -68,6 +68,28 @@ static QString set_info_string(int index, int n_files, const QString& file_name)
     return image_info;
 }
 
+// check if the folder has files in it
+
+static bool check_for_known_file_types(const QString& folder)
+{
+    QDir dir(folder);
+
+    //File types
+    QStringList filters = {"*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.tiff", "*.webp", "*.psd"};
+
+    QStringList files = dir.entryList(filters, QDir::Files); // filtering the files with the right extensions
+
+    if (files.size() > 0)
+    {
+        return true;
+    }
+
+    else
+    {
+        return false;
+    }
+}
+
 
 //////////////////////////////////////// class definition
 
@@ -83,6 +105,7 @@ ImageViewer::ImageViewer(QWidget* parent)
     QString last_source = m_settings.value("source_folder", "").toString();
     m_source_folder = last_source;
 
+    qDebug() << "SETTINGS: " << m_settings.fileName();
 
     // screen dependent image scaling
     QScreen* screen = QApplication::primaryScreen();
@@ -94,7 +117,7 @@ ImageViewer::ImageViewer(QWidget* parent)
 
     m_current_index = 0;
 
-    m_ascii_converter = new ImageConverter(70);
+    m_ascii_converter = new ImageConverter(120);
 
     build_UI();
     connect_buttons();    
@@ -198,25 +221,33 @@ void ImageViewer::connect_buttons()
 void ImageViewer::on_open_folder_button_pressed()
 {
     //take the output and put it in a QString
-    QString folder = QFileDialog::getExistingDirectory(this, "Select a source folder");   
+    QString folder = QFileDialog::getExistingDirectory(this, "Select a source folder"); 
+
+    QSettings m_settings;
     
-
-    if (!folder.isEmpty())
-    {
-        QSettings m_settings;
-        m_settings.setValue("source_folder", folder);
-        this->m_source_folder = folder;        
-
-        load_images_to_list();        
-
-        qDebug() << "Source folder set: " << m_source_folder;       
+    // if the folder is empty you can set it as a default as long as it exists
+    if (folder.isEmpty())
+    {       
+        return;      
     }
+
+
+    bool has_images = check_for_known_file_types(folder);
+    m_settings.setValue("source_folder", folder);
+    m_source_folder = folder;
+
+    // if the folder is not empty but has not known file types inside
+    if (has_images)
+    {
+        load_images_to_list();            
+    }    
 
     else
     {
-        this->m_source_folder.clear();  
+        m_image_info_label->setText("No images found in current folder");
+        m_image_label->setText("Current folder does not contain images");
 
-        qDebug() << "Invalid path choice. Unable to set source folder!";
+        m_file_list_widget->clear();
     }
 }
 
@@ -234,38 +265,50 @@ void ImageViewer::load_images_to_list()
         qDebug() << "Source folder does not exist!";
     }
 
-    //File types
-    QStringList filters = { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.tiff", "*.webp" };
+    bool has_files = check_for_known_file_types(m_source_folder);
 
-    QStringList files = dir.entryList(filters, QDir::Files); // filtering the files with the right extensions
-
-    for (const QString& file_name : files) 
+    if(has_files)
     {
-        QString full_path = dir.absoluteFilePath(file_name); // reconstruct the full path for each file
-        m_file_list_container.append(full_path);
-        m_file_list_widget->addItem(file_name);
+        //File types
+        QStringList filters = {"*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.tiff", "*.webp"};
+
+        QStringList files = dir.entryList(filters, QDir::Files); // filtering the files with the right extensions
+
+        for (const QString& file_name : files)
+        {
+            QString full_path = dir.absoluteFilePath(file_name); // reconstruct the full path for each file
+            m_file_list_container.append(full_path);
+            m_file_list_widget->addItem(file_name);
+        }
+
+        auto first_item = m_file_list_container[0];
+
+        if (first_item != "")
+        {
+            m_current_filepath = first_item;
+            load_image(0);
+            m_current_index = 0;
+            m_file_list_widget->setCurrentRow(0);
+
+
+
+            // store total files number
+            m_number_of_files = m_file_list_container.size();
+
+
+            // refresh info for the first image
+            auto first_image_name = truncate_url_to_image_name(first_item);
+            QString image_info = set_info_string(m_current_index + 1, m_number_of_files, first_image_name);
+            m_image_info_label->setText(image_info);
+        }
     }
 
-    auto first_item = m_file_list_container[0];
-
-    if (first_item != "")
+    else
     {
-        m_current_filepath = first_item;
-        load_image(0);
-        m_current_index = 0;
-        m_file_list_widget->setCurrentRow(0);        
-
-
-
-        // store total files number
-        m_number_of_files = m_file_list_container.size();
-
-
-        // refresh info for the first image
-        auto first_image_name = truncate_url_to_image_name(first_item);
-        QString image_info = set_info_string(m_current_index + 1, m_number_of_files, first_image_name);
-        m_image_info_label->setText(image_info);
+        m_image_info_label->setText("No images found in current folder");
+        m_image_label->setText("Current folder does not contain images");
     }
+
 }
 
 
@@ -296,15 +339,29 @@ QPixmap ImageViewer::scale_image_to_fit(const QPixmap& image)
 void ImageViewer::check_settings()
 {
     qDebug() << "Current source folder" << m_source_folder;
-    load_images_to_list();
 
-    auto initial_path = m_file_list_container[0];
-    initial_path = truncate_url_to_image_name(initial_path);
+    bool has_images = check_for_known_file_types(m_source_folder);
 
-    // info for the current image
-    QString image_info = set_info_string(m_current_index + 1, m_number_of_files, initial_path);
+    if(has_images)
+    {
+        load_images_to_list();
 
-    m_image_info_label->setText(image_info);
+        auto initial_path = m_file_list_container[0];
+        initial_path = truncate_url_to_image_name(initial_path);
+
+        // info for the current image
+        QString image_info = set_info_string(m_current_index + 1, m_number_of_files, initial_path);
+
+        m_image_info_label->setText(image_info);
+    }
+
+    else
+    {
+        m_image_info_label->setText("No images found in current folder");
+        m_image_label->setText("Current folder does not contain images");
+    }
+
+    
 }
 
 void ImageViewer::display_clicked_image(QListWidgetItem* list_object)
