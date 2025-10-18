@@ -137,6 +137,9 @@ void ImageViewer::build_UI()
     m_file_layout = new QVBoxLayout();
     m_file_list_widget = new QListWidget();
 
+    // dynamically set max width of the list widget
+    m_file_list_widget->setMaximumWidth(m_scaled_max_dimension * 0.35);
+
     m_file_buttons_layout = new QHBoxLayout;
 
     m_open_folder_button = new QPushButton("Open", this);
@@ -145,42 +148,82 @@ void ImageViewer::build_UI()
     m_file_buttons_layout->addWidget(m_rescan_folder_button);
 
     m_file_layout->addWidget(m_file_list_widget);
-    m_file_layout->addLayout(m_file_buttons_layout);
+    m_file_layout->addLayout(m_file_buttons_layout);   
     
     // image layout
     m_image_layout = new QVBoxLayout();
-    m_image_label = new QLabel();
+    m_image_display_label = new QLabel();
     m_image_info_label = new QLabel(this);
-    m_image_label->setAlignment(Qt::AlignCenter);
+    m_image_display_label->setAlignment(Qt::AlignCenter);
     m_image_info_label->setAlignment(Qt::AlignCenter);
     m_image_info_label->setFixedHeight(20);
-    m_image_layout->addWidget(m_image_label);
+    m_image_layout->addWidget(m_image_display_label);
     m_image_layout->addWidget(m_image_info_label);
 
     // buttons
-    m_filter_buttons_layout = new QHBoxLayout();
+    m_filter_buttons_layout = new QVBoxLayout();
     m_reset_image_button = new QPushButton("Reset image", this);
-    m_contour_button = new QPushButton("Contour", this);
-    m_blur_button = new QPushButton("Blur", this);
+
+    // contour group
+    QGroupBox* contour_group = new QGroupBox("Contour");
+    QVBoxLayout* contour_layout = new QVBoxLayout();
+    m_contour_button = new QPushButton("Apply", this);
+    m_contour_slider_A = new QSlider(Qt::Horizontal, this);
+    m_contour_slider_B = new QSlider(Qt::Horizontal, this);
+    m_contour_slider_A->setRange(0, 500);  // set ranges and defaults
+    m_contour_slider_A->setValue(m_contour_low_threshold);
+    m_contour_slider_A->setTickPosition(QSlider::TicksBelow);
+    m_contour_slider_A->setTickInterval(50);  // every 50 units
+    m_contour_slider_B->setRange(0, 500);
+    m_contour_slider_B->setValue(m_contour_high_threshold);    
+    m_contour_slider_B->setTickPosition(QSlider::TicksBelow);
+    m_contour_slider_B->setTickInterval(50);  // every 50 units
+    contour_layout->addWidget(m_contour_button);
+    contour_layout->addWidget(m_contour_slider_A);
+    contour_layout->addWidget(m_contour_slider_B);
+    contour_group->setLayout(contour_layout);
+
+    // blur group
+    QGroupBox* blur_group = new QGroupBox("Blur");
+    QVBoxLayout* blur_layout = new QVBoxLayout();
+    m_blur_button = new QPushButton("Apply", this);
+    m_blur_slider = new QSlider(Qt::Horizontal, this);
+    m_blur_slider->setRange(3, 31);
+    m_blur_slider->setSingleStep(1);
+    m_blur_slider->setTickPosition(QSlider::TicksBelow);
+    m_blur_slider->setTickInterval(3);  // every 50 units
+
+    m_blur_slider->setValue(m_blur_value);
+    blur_layout->addWidget(m_blur_button);
+    blur_layout->addWidget(m_blur_slider);
+    blur_group->setLayout(blur_layout);
+
     m_invert_button = new QPushButton("Invert", this);
     m_gray_button = new QPushButton("Gray", this);
     m_ascii_button = new QPushButton("ASCII", this);
     m_save_button = new QPushButton("Save", this);
 
-    // add botton widgets to the button layout
+    // add widgets to the button layout
+    m_filter_buttons_layout->addStretch(); // acts like a spring
     m_filter_buttons_layout->addWidget(m_reset_image_button);
-    m_filter_buttons_layout->addWidget(m_contour_button);
-    m_filter_buttons_layout->addWidget(m_blur_button);
+    m_filter_buttons_layout->addWidget(contour_group);
+    m_filter_buttons_layout->addWidget(blur_group);
     m_filter_buttons_layout->addWidget(m_invert_button);
     m_filter_buttons_layout->addWidget(m_gray_button);    
     m_filter_buttons_layout->addWidget(m_ascii_button);
     m_filter_buttons_layout->addWidget(m_save_button);
+    m_filter_buttons_layout->addStretch(); // pushes buttons to top    
+    
 
-    // add the filter butons below the image display
-    m_image_layout->addLayout(m_filter_buttons_layout);
+    
+    m_main_area_layout = new QHBoxLayout;
+    m_main_area_layout->addLayout(m_filter_buttons_layout, 1);
+    m_main_area_layout->addLayout(m_image_layout, 16);
+
 
     master_layout->addLayout(m_file_layout, 1);
-    master_layout->addLayout(m_image_layout, 3);
+    
+    master_layout->addLayout(m_main_area_layout, 2);
     master_layout->setAlignment(Qt::AlignTop);
 
     this->setCentralWidget(central_widget);
@@ -201,12 +244,15 @@ void ImageViewer::connect_buttons()
 
     // Contour filter 
     connect(m_contour_button, &QPushButton::clicked, this, &ImageViewer::contour);   
+    connect(m_contour_slider_A, &QSlider::valueChanged, this, &ImageViewer::get_contour_slider_A_value);
+    connect(m_contour_slider_B, &QSlider::valueChanged, this, &ImageViewer::get_contour_slider_B_value);
 
     // Grayscale filter
     connect(m_gray_button, &QPushButton::clicked, this, &ImageViewer::convert_to_grayscale);
 
     // Blur filter
     connect(m_blur_button, &QPushButton::clicked, this, &ImageViewer::blur_image);
+    connect(m_blur_slider, &QSlider::valueChanged, this, &ImageViewer::get_blur_slider_value);
 
     // Invert filter
     connect(m_invert_button, &QPushButton::clicked, this, &ImageViewer::invert_image);
@@ -216,6 +262,7 @@ void ImageViewer::connect_buttons()
 
     // Save button
     connect(m_save_button, &QPushButton::clicked, this, &ImageViewer::save_image);
+
     
 }
 
@@ -247,7 +294,7 @@ void ImageViewer::on_open_folder_button_pressed()
     else
     {
         m_image_info_label->setText("No images found in current folder");
-        m_image_label->setText("Current folder does not contain images");
+        m_image_display_label->setText("Current folder does not contain images");
 
         m_file_list_widget->clear();
     }
@@ -308,7 +355,7 @@ void ImageViewer::load_images_to_list()
     else
     {
         m_image_info_label->setText("No images found in current folder");
-        m_image_label->setText("Current folder does not contain images");
+        m_image_display_label->setText("Current folder does not contain images");
     }
 
 }
@@ -360,7 +407,7 @@ void ImageViewer::check_settings()
     else
     {
         m_image_info_label->setText("No images found in current folder");
-        m_image_label->setText("Current folder does not contain images");
+        m_image_display_label->setText("Current folder does not contain images");
     }
 
     
@@ -385,7 +432,7 @@ void ImageViewer::display_clicked_image(QListWidgetItem* list_object)
 
         if (!mypix_qt.isNull())
         {
-            m_image_label->setPixmap(scale_image_to_fit(mypix_qt));
+            m_image_display_label->setPixmap(scale_image_to_fit(mypix_qt));
 
             // set info
             QString image_info = set_info_string(m_current_index + 1, m_number_of_files, text);
@@ -413,7 +460,7 @@ void ImageViewer::handle_image_with_cv(const QString& url, const QString& text)
     {
        
         auto pixmap = cv_to_qpixmap_converter(mypix);
-        m_image_label->setPixmap(scale_image_to_fit(pixmap));
+        m_image_display_label->setPixmap(scale_image_to_fit(pixmap));
         
         m_current_image = pixmap;
         qDebug() << "OpenCV used to open the image " << text;
@@ -421,7 +468,7 @@ void ImageViewer::handle_image_with_cv(const QString& url, const QString& text)
 
     else
     {   // if it fails again just display a warning
-        m_image_label->setText("Unknown image format");
+        m_image_display_label->setText("Unknown image format");
         m_image_info_label->setText("WARNING, unknown format: " + text);// set the info label to show warning + the image name
         // qDebug() << "Supported image formats:" << QImageReader::supportedImageFormats();
     }        
@@ -472,7 +519,7 @@ void ImageViewer::load_image(int row)
     // check if it's loaded in the QPixmap object
     if (!mypix_qt.isNull())
     {
-        m_image_label->setPixmap(scale_image_to_fit(mypix_qt));
+        m_image_display_label->setPixmap(scale_image_to_fit(mypix_qt));
 
         auto file_name = truncate_url_to_image_name(url);
 
@@ -490,6 +537,13 @@ void ImageViewer::load_image(int row)
         handle_image_with_cv(url, url);
     }
 }
+
+void ImageViewer::reset_image()
+{
+    load_image(m_current_index);
+}
+
+
 // FILTERS
 void ImageViewer::contour()
 {
@@ -500,7 +554,11 @@ void ImageViewer::contour()
     cv::GaussianBlur(pix2contour, pix2contour, cv::Size(3, 3), 1.5);
 
     cv::Mat edges;
-    cv::Canny(pix2contour, edges, 50, 150);
+    cv::Canny(pix2contour, edges, m_contour_low_threshold, m_contour_high_threshold); //50, 150 default
+
+    qDebug() << "Low T: " << m_contour_low_threshold;
+    qDebug() << "High T: " << m_contour_high_threshold;
+
 
     cv::GaussianBlur(edges, edges, cv::Size(3, 3), 1.5);
     cv::bitwise_not(edges, edges);// invert
@@ -510,16 +568,24 @@ void ImageViewer::contour()
     QPixmap pixmap = QPixmap::fromImage(qimage);
     m_modified_image = pixmap;
 
-    m_image_label->setPixmap(scale_image_to_fit(pixmap));
+    m_image_display_label->setPixmap(scale_image_to_fit(pixmap));
 
     auto file_name = truncate_url_to_image_name(m_current_filepath);
     QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
     m_image_info_label->setText("Contour " + image_info);
 }
 
-void ImageViewer::reset_image()
+// contour sliders
+void ImageViewer::get_contour_slider_A_value()
 {
-    load_image(m_current_index);
+    m_contour_low_threshold = m_contour_slider_A->value();
+
+}
+
+void ImageViewer::get_contour_slider_B_value()
+{
+
+    m_contour_high_threshold = m_contour_slider_B->value();
 }
 
 void ImageViewer::convert_to_ascii()
@@ -533,7 +599,7 @@ void ImageViewer::convert_to_ascii()
 
     m_modified_image = pixmap;
 
-    m_image_label->setPixmap(scale_image_to_fit(pixmap));   
+    m_image_display_label->setPixmap(scale_image_to_fit(pixmap));   
 
     // set info
     QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
@@ -548,28 +614,37 @@ void ImageViewer::convert_to_grayscale()
     auto pixmap = cv_to_qpixmap_converter(pix2gray);
     m_modified_image = pixmap;
 
-    m_image_label->setPixmap(scale_image_to_fit(pixmap));
+    m_image_display_label->setPixmap(scale_image_to_fit(pixmap));
     auto file_name = truncate_url_to_image_name(m_current_filepath);
     QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
     m_image_info_label->setText("Grayscale " + image_info);
 }
 
+void ImageViewer::get_blur_slider_value()
+{
+    m_blur_value = m_blur_slider->value();
+}
+
 void ImageViewer::blur_image()
 {
-    cv::Mat pix2blur = cv::imread(m_current_filepath.toStdString());
+    cv::Mat pix2blur = cv::imread(m_current_filepath.toStdString());    
     
-    // blurring happening here 
-    cv::GaussianBlur(pix2blur, pix2blur, cv::Size(9, 9), 55);
+    // kernel must odd
+    int kernel_size = m_blur_value % 2 == 0 ? m_blur_value + 1 : m_blur_value;
+    cv::GaussianBlur(pix2blur, pix2blur, cv::Size(kernel_size, kernel_size), 10.0);
 
     auto pixmap = cv_to_qpixmap_converter(pix2blur);
     m_modified_image = pixmap;
 
-    m_image_label->setPixmap(scale_image_to_fit(pixmap));
+    m_image_display_label->setPixmap(scale_image_to_fit(pixmap));
 
     auto file_name = truncate_url_to_image_name(m_current_filepath);
     QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
     m_image_info_label->setText("Blur " + image_info);
 }
+
+
+
 
 void ImageViewer::invert_image()
 {
@@ -581,12 +656,13 @@ void ImageViewer::invert_image()
     auto pixmap = cv_to_qpixmap_converter(pix_output);
     m_modified_image = pixmap;
 
-    m_image_label->setPixmap(scale_image_to_fit(pixmap));
+    m_image_display_label->setPixmap(scale_image_to_fit(pixmap));
 
     auto file_name = truncate_url_to_image_name(m_current_filepath);
     QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
     m_image_info_label->setText("Invert " + image_info);
 }
+
 
 void ImageViewer::save_image()
 {

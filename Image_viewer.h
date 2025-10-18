@@ -1,4 +1,5 @@
 #pragma once
+
 #include <QtWidgets/QMainWindow>
 #include <QPushButton>
 
@@ -8,6 +9,7 @@ class QPushButton;
 class QLabel;
 class QHBoxLayout;
 class QListWidgetItem;
+class QSlider;
 
 class ImageConverter;
 class QPixmap;
@@ -50,11 +52,21 @@ public:
 
     void convert_to_grayscale();
 
+    
+
     void blur_image();
 
     void invert_image();
 
-    void save_image();    
+    void save_image();
+
+    void get_contour_slider_A_value();
+
+    void get_contour_slider_B_value();
+
+    void get_blur_slider_value();
+
+    
 
     ~ImageViewer();
 private:
@@ -80,10 +92,12 @@ private:
     QHBoxLayout* m_file_buttons_layout;
     // image display layout
     QVBoxLayout* m_image_layout;
-    QLabel* m_image_label; // for displaying the image
-    QLabel* m_image_info_label; // for the image name 
+    QLabel* m_image_display_label; // for displaying the image
+    QLabel* m_image_info_label; // for the image name and info
+    QHBoxLayout* m_main_area_layout; // the area including the buttons the display and the info label
+
     // image filter buttons
-    QHBoxLayout* m_filter_buttons_layout;
+    QVBoxLayout* m_filter_buttons_layout;
     QPushButton* m_reset_image_button;
     QPushButton* m_contour_button;
     QPushButton* m_blur_button;
@@ -91,6 +105,14 @@ private:
     QPushButton* m_gray_button;
     QPushButton* m_ascii_button;
     QPushButton* m_save_button;
+
+    QSlider* m_contour_slider_A;
+    QSlider* m_contour_slider_B;
+    int m_contour_low_threshold = 50;
+    int m_contour_high_threshold = 150;
+
+    QSlider* m_blur_slider;
+    int m_blur_value = 3;
     
     
 };
