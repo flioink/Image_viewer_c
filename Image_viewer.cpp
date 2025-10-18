@@ -90,7 +90,6 @@ static bool check_for_known_file_types(const QString& folder)
     }
 }
 
-
 //////////////////////////////////////// class definition
 
 ImageViewer::ImageViewer(QWidget* parent)
@@ -147,10 +146,7 @@ void ImageViewer::build_UI()
 
     m_file_layout->addWidget(m_file_list_widget);
     m_file_layout->addLayout(m_file_buttons_layout);
-
-    //m_file_layout->addWidget(m_open_folder_button);
-    //m_file_layout->addWidget(m_rescan_folder_button);
-
+    
     // image layout
     m_image_layout = new QVBoxLayout();
     m_image_label = new QLabel();
@@ -165,21 +161,23 @@ void ImageViewer::build_UI()
     m_filter_buttons_layout = new QHBoxLayout();
     m_reset_image_button = new QPushButton("Reset image", this);
     m_contour_button = new QPushButton("Contour", this);
-    m_blur_button = new QPushButton("Blur", this);;
-    m_invert_button = new QPushButton("Invert", this);;
-    m_gray_button = new QPushButton("Gray", this);;
-    m_ascii_button = new QPushButton("ASCII", this);;
+    m_blur_button = new QPushButton("Blur", this);
+    m_invert_button = new QPushButton("Invert", this);
+    m_gray_button = new QPushButton("Gray", this);
+    m_ascii_button = new QPushButton("ASCII", this);
+    m_save_button = new QPushButton("Save", this);
+
+    // add botton widgets to the button layout
     m_filter_buttons_layout->addWidget(m_reset_image_button);
     m_filter_buttons_layout->addWidget(m_contour_button);
     m_filter_buttons_layout->addWidget(m_blur_button);
     m_filter_buttons_layout->addWidget(m_invert_button);
-    m_filter_buttons_layout->addWidget(m_gray_button);
-    
+    m_filter_buttons_layout->addWidget(m_gray_button);    
     m_filter_buttons_layout->addWidget(m_ascii_button);
-    // add the fileter butons below the image display
+    m_filter_buttons_layout->addWidget(m_save_button);
+
+    // add the filter butons below the image display
     m_image_layout->addLayout(m_filter_buttons_layout);
-
-
 
     master_layout->addLayout(m_file_layout, 1);
     master_layout->addLayout(m_image_layout, 3);
@@ -202,10 +200,7 @@ void ImageViewer::connect_buttons()
     connect(m_reset_image_button, &QPushButton::clicked, this, &ImageViewer::reset_image);
 
     // Contour filter 
-    connect(m_contour_button, &QPushButton::clicked, this, &ImageViewer::contour);
-
-    // ASCII converter button
-    connect(m_ascii_button, &QPushButton::clicked, this, &ImageViewer::convert_to_ascii);
+    connect(m_contour_button, &QPushButton::clicked, this, &ImageViewer::contour);   
 
     // Grayscale filter
     connect(m_gray_button, &QPushButton::clicked, this, &ImageViewer::convert_to_grayscale);
@@ -215,33 +210,40 @@ void ImageViewer::connect_buttons()
 
     // Invert filter
     connect(m_invert_button, &QPushButton::clicked, this, &ImageViewer::invert_image);
+
+    // ASCII converter button
+    connect(m_ascii_button, &QPushButton::clicked, this, &ImageViewer::convert_to_ascii);
+
+    // Save button
+    connect(m_save_button, &QPushButton::clicked, this, &ImageViewer::save_image);
     
 }
 
 void ImageViewer::on_open_folder_button_pressed()
 {
-    //take the output and put it in a QString
+    // take the output and put it in a QString
     QString folder = QFileDialog::getExistingDirectory(this, "Select a source folder"); 
 
     QSettings m_settings;
     
-    // if the folder is empty you can set it as a default as long as it exists
+    // if a folder isn't selected 
     if (folder.isEmpty())
     {       
         return;      
     }
 
-
+    // set folder even if it's empty
     bool has_images = check_for_known_file_types(folder);
     m_settings.setValue("source_folder", folder);
     m_source_folder = folder;
 
-    // if the folder is not empty but has not known file types inside
+    // if the folder has known file formats then load the list
     if (has_images)
     {
         load_images_to_list();            
     }    
 
+    // otherwise just display warnings
     else
     {
         m_image_info_label->setText("No images found in current folder");
@@ -366,9 +368,7 @@ void ImageViewer::check_settings()
 
 void ImageViewer::display_clicked_image(QListWidgetItem* list_object)
 {
-    auto text = list_object->text();// get the text
-    //m_image_info_label->setText(text);// set the info label to show the url
-
+    auto text = list_object->text(); // get the text 
     
 
     auto row = m_file_list_widget->row(list_object);// getting the row in the widget
@@ -382,7 +382,6 @@ void ImageViewer::display_clicked_image(QListWidgetItem* list_object)
 
         QPixmap mypix_qt(url);
         // check if it's loaded in the QPixmap object
-
 
         if (!mypix_qt.isNull())
         {
@@ -415,8 +414,7 @@ void ImageViewer::handle_image_with_cv(const QString& url, const QString& text)
        
         auto pixmap = cv_to_qpixmap_converter(mypix);
         m_image_label->setPixmap(scale_image_to_fit(pixmap));
-
-        // add to memeber variable to store current image
+        
         m_current_image = pixmap;
         qDebug() << "OpenCV used to open the image " << text;
     }
@@ -425,7 +423,7 @@ void ImageViewer::handle_image_with_cv(const QString& url, const QString& text)
     {   // if it fails again just display a warning
         m_image_label->setText("Unknown image format");
         m_image_info_label->setText("WARNING, unknown format: " + text);// set the info label to show warning + the image name
-        qDebug() << "Supported image formats:" << QImageReader::supportedImageFormats();
+        // qDebug() << "Supported image formats:" << QImageReader::supportedImageFormats();
     }        
 }
 
@@ -436,7 +434,7 @@ void ImageViewer::wheelEvent(QWheelEvent* event)
     if (delta > 0) // rotating the mouse wheel away from you is considered UP
     {
         m_current_index = (m_current_index == 0) ? m_file_list_container.size() - 1 : m_current_index - 1;
-        // if at start wrap to end OR just go one down
+        // if at start wrap to end else just go one down
 
         m_current_filepath = m_file_list_container[m_current_index];
 
@@ -447,7 +445,7 @@ void ImageViewer::wheelEvent(QWheelEvent* event)
     else // rotating the mouse wheel towards you is considered DOWN
     {
         m_current_index = (m_current_index == m_file_list_container.size() - 1) ? 0 : m_current_index + 1;
-        // if at end go at start OR just go one up
+        // if at end go at start else just go one up
 
         m_current_filepath = m_file_list_container[m_current_index];
 
@@ -510,6 +508,7 @@ void ImageViewer::contour()
     // convert back to pixmap
     QImage qimage(edges.data, edges.cols, edges.rows, edges.step, QImage::Format_Grayscale8);
     QPixmap pixmap = QPixmap::fromImage(qimage);
+    m_modified_image = pixmap;
 
     m_image_label->setPixmap(scale_image_to_fit(pixmap));
 
@@ -532,12 +531,13 @@ void ImageViewer::convert_to_ascii()
 
     auto pixmap = cv_to_qpixmap_converter(cv_img);
 
-    m_image_label->setPixmap(scale_image_to_fit(pixmap));
+    m_modified_image = pixmap;
+
+    m_image_label->setPixmap(scale_image_to_fit(pixmap));   
 
     // set info
     QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
-    m_image_info_label->setText("ASCII " + image_info);
-    
+    m_image_info_label->setText("ASCII " + image_info);    
 }
 
 void ImageViewer::convert_to_grayscale()
@@ -546,6 +546,7 @@ void ImageViewer::convert_to_grayscale()
     cv::cvtColor(pix2gray, pix2gray, cv::COLOR_RGB2GRAY); // in place conversion
 
     auto pixmap = cv_to_qpixmap_converter(pix2gray);
+    m_modified_image = pixmap;
 
     m_image_label->setPixmap(scale_image_to_fit(pixmap));
     auto file_name = truncate_url_to_image_name(m_current_filepath);
@@ -557,10 +558,11 @@ void ImageViewer::blur_image()
 {
     cv::Mat pix2blur = cv::imread(m_current_filepath.toStdString());
     
-    //blurring happening here 
+    // blurring happening here 
     cv::GaussianBlur(pix2blur, pix2blur, cv::Size(9, 9), 55);
 
     auto pixmap = cv_to_qpixmap_converter(pix2blur);
+    m_modified_image = pixmap;
 
     m_image_label->setPixmap(scale_image_to_fit(pixmap));
 
@@ -577,10 +579,34 @@ void ImageViewer::invert_image()
     cv::bitwise_not(pix_input, pix_output);
 
     auto pixmap = cv_to_qpixmap_converter(pix_output);
+    m_modified_image = pixmap;
 
     m_image_label->setPixmap(scale_image_to_fit(pixmap));
 
     auto file_name = truncate_url_to_image_name(m_current_filepath);
     QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
     m_image_info_label->setText("Invert " + image_info);
+}
+
+void ImageViewer::save_image()
+{
+    QString default_save_path = QDir::homePath() + "/modified";
+
+    QString file_path = QFileDialog::getSaveFileName(this, "Save Image", default_save_path, "Images (*.png *.jpg *.jpeg *.bmp)");
+
+    if (!file_path.isEmpty()) 
+    {
+        if (!m_modified_image.isNull())
+        {
+            m_modified_image.save(file_path);
+        }
+
+        else
+        {
+            m_current_image.save(file_path);
+        }
+
+            
+    }
+    
 }

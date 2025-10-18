@@ -14,8 +14,6 @@ class QPixmap;
 class Mat;
 
 
-
-
 class ImageViewer : public QMainWindow
 {
     Q_OBJECT
@@ -56,8 +54,7 @@ public:
 
     void invert_image();
 
-   
-    //QPixmap cv_to_qpixmap_converter(cv::Mat& cv_img);// format converter
+    void save_image();    
 
     ~ImageViewer();
 private:
@@ -67,6 +64,7 @@ private:
     QString m_settings_file;
     QStringList m_file_list_container;
     QPixmap m_current_image;
+    QPixmap m_modified_image;
 
     int m_scaled_max_dimension = 900;
     int m_current_index; // tracking the current image
@@ -92,6 +90,7 @@ private:
     QPushButton* m_invert_button;
     QPushButton* m_gray_button;
     QPushButton* m_ascii_button;
+    QPushButton* m_save_button;
     
     
 };
