@@ -13,6 +13,7 @@ class QSlider;
 
 class ImageConverter;
 class QPixmap;
+class QImage;
 class Mat;
 
 
@@ -60,9 +61,15 @@ public:
 
     void save_image();
 
+    void sharpen();
+
+    void get_sharpen_slider_value();
+
     void get_contour_slider_A_value();
 
     void get_contour_slider_B_value();
+
+    void get_contour_slider_blur_value();
 
     void get_blur_slider_value();
 
@@ -75,8 +82,10 @@ private:
     QString m_current_filepath;
     QString m_settings_file;
     QStringList m_file_list_container;
+
     QPixmap m_current_image;
     QPixmap m_modified_image;
+    //QImage m_working_image;
 
     int m_scaled_max_dimension = 900;
     int m_current_index; // tracking the current image
@@ -94,13 +103,14 @@ private:
     QVBoxLayout* m_image_layout;
     QLabel* m_image_display_label; // for displaying the image
     QLabel* m_image_info_label; // for the image name and info
-    QHBoxLayout* m_main_area_layout; // the area including the buttons the display and the info label
+    QHBoxLayout* m_main_area_layout; // the area including the buttons and the sliders 
 
     // image filter buttons
     QVBoxLayout* m_filter_buttons_layout;
     QPushButton* m_reset_image_button;
     QPushButton* m_contour_button;
     QPushButton* m_blur_button;
+    QPushButton* m_sharpen_button;
     QPushButton* m_invert_button;
     QPushButton* m_gray_button;
     QPushButton* m_ascii_button;
@@ -108,11 +118,16 @@ private:
 
     QSlider* m_contour_slider_A;
     QSlider* m_contour_slider_B;
+    QSlider* m_contour_slider_blur;
     int m_contour_low_threshold = 50;
     int m_contour_high_threshold = 150;
+    int m_contour_blur_value = 3;
 
     QSlider* m_blur_slider;
     int m_blur_value = 3;
+
+    QSlider* m_sharpen_slider;
+    float m_sharpen_value = 1.5f;
     
     
 };
