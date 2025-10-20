@@ -31,23 +31,6 @@ static QPixmap cv_to_qpixmap_converter(cv::Mat& cv_img)
     return QPixmap::fromImage(qimage);
 }
 
-// shorten the url to just the file name for display purposes
-//static QString truncate_url_to_image_name(const QString& s)
-//{
-//    string tmp = s.toStdString();
-//    int found = tmp.find_last_of('/');
-//
-//    if (found != 0)
-//    {
-//        string filename = tmp.substr(found + 1, tmp.length());
-//        QString q_filename = QString::fromStdString(filename);
-//        qDebug() << "TRUNCATED: " << q_filename;
-//
-//        return q_filename;
-//    }
-//
-//    return QString("N/A");
-//}
 
 // shorten the url to just the file name for display purposes
 static QString truncate_url_to_image_name(const QString& path)
@@ -299,6 +282,9 @@ void ImageViewer::connect_buttons()
 
 void ImageViewer::on_open_folder_button_pressed()
 {
+    m_file_list_container.clear();  // Clearing the current list of urls
+    m_file_list_widget->clear();
+
     // take the output and put it in a QString
     QString folder = QFileDialog::getExistingDirectory(this, "Select a source folder"); 
 
@@ -306,7 +292,8 @@ void ImageViewer::on_open_folder_button_pressed()
     
     // if a folder isn't selected 
     if (folder.isEmpty())
-    {       
+    {
+        disable_image_controls();
         return;      
     }
 
@@ -326,8 +313,9 @@ void ImageViewer::on_open_folder_button_pressed()
     {
         m_image_info_label->setText("No images found in current folder");
         m_image_display_label->setText("Current folder does not contain images");
-
         m_file_list_widget->clear();
+
+        disable_image_controls();
     }
 }
 
@@ -338,6 +326,8 @@ void ImageViewer::load_images_to_list()
     
     m_file_list_container.clear();  // Clearing the current list of urls
     m_file_list_widget->clear();
+
+    disable_image_controls();
 
 
     QDir dir(m_source_folder); // This converts the member to the type of object the library can check
@@ -377,6 +367,10 @@ void ImageViewer::load_images_to_list()
             // store total files number
             m_number_of_files = m_file_list_container.size();
 
+            // enable the buttons and sliders
+            enable_image_controls();
+                  
+
 
             // refresh info for the first image
             auto first_image_name = truncate_url_to_image_name(first_item);
@@ -390,6 +384,7 @@ void ImageViewer::load_images_to_list()
     {
         m_image_info_label->setText("No images found in current folder");
         m_image_display_label->setText("Current folder does not contain images");
+        disable_image_controls();
     }
 
 }
@@ -442,6 +437,7 @@ void ImageViewer::check_settings()
     {
         m_image_info_label->setText("No images found in current folder");
         m_image_display_label->setText("Current folder does not contain images");
+        disable_image_controls();
     }
 
     
@@ -510,33 +506,36 @@ void ImageViewer::handle_image_with_cv(const QString& url, const QString& text)
 
 void ImageViewer::wheelEvent(QWheelEvent* event)
 {
-    auto delta = event->angleDelta().y();
-
-    if (delta > 0) // rotating the mouse wheel away from you is considered UP
+    if(m_image_display_label->isEnabled()) // wheel events will still trigger even if the widget is disabled
     {
-        m_current_index = (m_current_index == 0) ? m_file_list_container.size() - 1 : m_current_index - 1;
-        // if at start wrap to end else just go one down
+        auto delta = event->angleDelta().y();
 
-        m_current_filepath = m_file_list_container[m_current_index];
+        if (delta > 0) // rotating the mouse wheel away from you is considered UP
+        {
+            m_current_index = (m_current_index == 0) ? m_file_list_container.size() - 1 : m_current_index - 1;
+            // if at start wrap to end else just go one down
 
-        m_file_list_widget->setCurrentRow(m_current_index);// set list widget marker to current index
+            m_current_filepath = m_file_list_container[m_current_index];
 
-        
+            m_file_list_widget->setCurrentRow(m_current_index);// set list widget marker to current index
+
+
+        }
+        else // rotating the mouse wheel towards you is considered DOWN
+        {
+            m_current_index = (m_current_index == m_file_list_container.size() - 1) ? 0 : m_current_index + 1;
+            // if at end go at start else just go one up
+
+            m_current_filepath = m_file_list_container[m_current_index];
+
+            m_file_list_widget->setCurrentRow(m_current_index);// set list widget marker to current index
+
+
+        }
+
+
+        load_image(m_current_index);
     }
-    else // rotating the mouse wheel towards you is considered DOWN
-    {
-        m_current_index = (m_current_index == m_file_list_container.size() - 1) ? 0 : m_current_index + 1;
-        // if at end go at start else just go one up
-
-        m_current_filepath = m_file_list_container[m_current_index];
-
-        m_file_list_widget->setCurrentRow(m_current_index);// set list widget marker to current index
-
-        
-    }
-    
-
-    load_image(m_current_index);
 
 
 }
@@ -772,9 +771,43 @@ void ImageViewer::get_sharpen_slider_value()
 void ImageViewer::disable_image_controls()
 {
 
+    m_filter_buttons_layout->setEnabled(false);
+    m_reset_image_button->setEnabled(false);
+    m_contour_button->setEnabled(false);
+    m_blur_button->setEnabled(false);
+    m_sharpen_button->setEnabled(false);
+    m_invert_button->setEnabled(false);
+    m_gray_button->setEnabled(false);
+    m_ascii_button->setEnabled(false);
+    m_save_button->setEnabled(false);
+    m_contour_slider_A->setEnabled(false);
+    m_contour_slider_B->setEnabled(false);
+    m_contour_slider_blur->setEnabled(false);   
+    m_blur_slider->setEnabled(false);
+    m_sharpen_slider->setEnabled(false);
+
+    m_image_display_label->setEnabled(false);
+    m_file_list_widget->setEnabled(false);
+
 }
 
 void ImageViewer::enable_image_controls()
 {
+    m_filter_buttons_layout->setEnabled(true);
+    m_reset_image_button->setEnabled(true);
+    m_contour_button->setEnabled(true);
+    m_blur_button->setEnabled(true);
+    m_sharpen_button->setEnabled(true);
+    m_invert_button->setEnabled(true);
+    m_gray_button->setEnabled(true);
+    m_ascii_button->setEnabled(true);
+    m_save_button->setEnabled(true);
+    m_contour_slider_A->setEnabled(true);
+    m_contour_slider_B->setEnabled(true);
+    m_contour_slider_blur->setEnabled(true);
+    m_blur_slider->setEnabled(true);
+    m_sharpen_slider->setEnabled(true);
 
+    m_image_display_label->setEnabled(true);
+    m_file_list_widget->setEnabled(true);
 }
