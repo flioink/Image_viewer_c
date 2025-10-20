@@ -110,8 +110,10 @@ ImageViewer::ImageViewer(QWidget* parent)
     QScreen* screen = QApplication::primaryScreen();
     QRect screen_geometry = screen->availableGeometry();
     //qDebug() << "Screen geometry: " << screen_geometry;
-    m_scaled_max_dimension = qMin(screen_geometry.height(), screen_geometry.width()) * 0.93;
-    qDebug() << "SCALED DIMENSION: " << m_scaled_max_dimension;
+    m_scaled_max_dimension_y = qMin(screen_geometry.height(), screen_geometry.width()) * 0.93;
+    m_scaled_max_dimension_x = m_scaled_max_dimension_y * 1.31; // adds 21% width to keep most of the display area used 
+
+    qDebug() << "SCALED DIMENSION: " << m_scaled_max_dimension_y;
     
 
     m_current_index = 0;
@@ -138,7 +140,7 @@ void ImageViewer::build_UI()
     m_file_list_widget = new QListWidget();
 
     // dynamically set max width of the list widget
-    m_file_list_widget->setMaximumWidth(m_scaled_max_dimension * 0.35);
+    m_file_list_widget->setMaximumWidth(m_scaled_max_dimension_y * 0.35);
 
     m_file_buttons_layout = new QHBoxLayout;
 
@@ -400,15 +402,15 @@ QPixmap ImageViewer::scale_image_to_fit(const QPixmap& image)
 
 
     // if the current image is below the threshold just kepp it as is
-    if (image.height() < m_scaled_max_dimension && image.width() < m_scaled_max_dimension)
+    if (image.height() < m_scaled_max_dimension_y && image.width() < m_scaled_max_dimension_y)
     {
         return image;
     }
        
     auto pixmap = image.scaled
     (
-        m_scaled_max_dimension,
-        m_scaled_max_dimension,
+        m_scaled_max_dimension_x,
+        m_scaled_max_dimension_y,
         Qt::KeepAspectRatio,
         Qt::SmoothTransformation
     );
@@ -763,4 +765,16 @@ void ImageViewer::get_sharpen_slider_value()
 {
     m_sharpen_value = static_cast<float>(m_sharpen_slider->value() / 10.0f);
     sharpen();
+}
+
+// to do
+
+void ImageViewer::disable_image_controls()
+{
+
+}
+
+void ImageViewer::enable_image_controls()
+{
+
 }

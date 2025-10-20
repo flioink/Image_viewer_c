@@ -65,6 +65,10 @@ public:
 
     void get_sharpen_slider_value();
 
+    void disable_image_controls();
+
+    void enable_image_controls();
+
     void get_contour_slider_A_value();
 
     void get_contour_slider_B_value();
@@ -87,7 +91,8 @@ private:
     QPixmap m_modified_image;
     //QImage m_working_image;
 
-    int m_scaled_max_dimension = 900;
+    int m_scaled_max_dimension_y;
+    int m_scaled_max_dimension_x;
     int m_current_index; // tracking the current image
     int m_number_of_files;
 
