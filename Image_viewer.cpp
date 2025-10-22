@@ -19,7 +19,9 @@
 #include <QWheelEvent>
 #include <QApplication>
 #include <opencv2/opencv.hpp>
+#include <QCheckBox>
 #include "ascii_converter.h"
+#include "QProcess"
 #include <memory>
 
 
@@ -235,13 +237,16 @@ void ImageViewer::build_UI()
     // ascii 
     QGroupBox* ascii_group = new QGroupBox("ASCII filter");
     QVBoxLayout* ascii_layout = new QVBoxLayout();
-    m_ascii_label = new QLabel(this);
-    m_ascii_label->setText(QString("Detail: %1").arg(m_ascii_detail));
+    m_ascii_color_checkbox = new QCheckBox("Color the ASCII symbols", this);
+    m_ascii_color_checkbox->setChecked(false);
+    m_ascii_detail_label = new QLabel(this);
+    m_ascii_detail_label->setText(QString("Detail: %1").arg(m_ascii_detail));
     m_ascii_slider = new QSlider(Qt::Horizontal, this);
     m_ascii_slider-> setRange(50, 150);
     m_ascii_slider->setValue(m_ascii_detail);
     ascii_layout->addWidget(m_ascii_button);
-    ascii_layout->addWidget(m_ascii_label);
+    ascii_layout->addWidget(m_ascii_color_checkbox);
+    ascii_layout->addWidget(m_ascii_detail_label);
     ascii_layout->addWidget(m_ascii_slider);
     ascii_group->setLayout(ascii_layout);
 
@@ -313,7 +318,13 @@ void ImageViewer::connect_buttons()
     // Flip horizontal
     connect(m_flip_horizontal_button, &QPushButton::clicked, this, &ImageViewer::flip_horizontal);
 
+    // Flip vertical
     connect(m_flip_vertical_button, &QPushButton::clicked, this, &ImageViewer::flip_verical);
+
+    // Add double click event to the file-list widget
+    connect(m_file_list_widget, &QListWidget::itemDoubleClicked, this, &ImageViewer::on_list_widget_item_clicked);
+
+    connect(m_ascii_color_checkbox, &QCheckBox::toggled, this, &ImageViewer::get_ascii_color_checkbox_state_changed);
     
 }
 
@@ -333,6 +344,10 @@ void ImageViewer::on_open_folder_button_pressed()
     if (folder.isEmpty())
     {
         disable_image_controls();
+        m_image_info_label->setText("No images found in current folder");
+        m_image_display_label->setText("Current folder does not contain images");
+        m_file_list_widget->clear();
+
         return;      
     }
 
@@ -683,7 +698,7 @@ void ImageViewer::convert_to_ascii()
     auto file_name = truncate_url_to_image_name(m_current_filepath);
     auto path = m_current_filepath.toStdString();   
 
-    cv::Mat cv_img = m_ascii_converter->process(path, m_ascii_detail);     
+    cv::Mat cv_img = m_ascii_converter->process(path, m_ascii_detail, m_ascii_colored);
 
     auto pixmap = cv_to_qpixmap_converter(cv_img);
 
@@ -699,8 +714,13 @@ void ImageViewer::convert_to_ascii()
 void ImageViewer::get_ascii_slider_value()
 {
     m_ascii_detail = m_ascii_slider->value();
-    m_ascii_label->setText(QString("Detail: %1").arg(m_ascii_detail));
+    m_ascii_detail_label->setText(QString("Detail: %1").arg(m_ascii_detail));
     convert_to_ascii();
+}
+
+void ImageViewer::get_ascii_color_checkbox_state_changed(bool checked)
+{
+    m_ascii_colored = checked;
 }
 
 void ImageViewer::convert_to_grayscale()
@@ -743,9 +763,6 @@ void ImageViewer::blur_image()
     QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
     m_image_info_label->setText("Blur " + image_info);
 }
-
-
-
 
 void ImageViewer::invert_image()
 {
@@ -838,6 +855,7 @@ void ImageViewer::disable_image_controls()
     m_sharpen_slider->setEnabled(false);
     m_flip_horizontal_button->setEnabled(false);
     m_flip_vertical_button->setEnabled(false);
+    m_ascii_slider->setEnabled(false);
 
     m_image_display_label->setEnabled(false);
     m_file_list_widget->setEnabled(false);
@@ -862,6 +880,7 @@ void ImageViewer::enable_image_controls()
     m_sharpen_slider->setEnabled(true);
     m_flip_horizontal_button->setEnabled(true);
     m_flip_vertical_button->setEnabled(true);
+    m_ascii_slider->setEnabled(true);
 
     m_image_display_label->setEnabled(true);
     m_file_list_widget->setEnabled(true);
@@ -927,10 +946,31 @@ void ImageViewer::apply_all_transforms()
     if (m_flipped_horizontally) transform.scale(-1, 1);
     if (m_flipped_vertically) transform.scale(1, -1);
 
+
     auto flipped = m_current_image.transformed(transform);
 
     m_modified_image = flipped;
-
     m_image_display_label->setPixmap(scale_image_to_fit(flipped));
 
+}
+
+void ImageViewer::on_list_widget_item_clicked(QListWidgetItem* item)
+{
+    if(!item)
+    {
+        return;
+    }
+
+    QString file_name = item->text();
+    QDir dir(m_source_folder);
+    QString full_path = dir.absoluteFilePath(file_name);    
+
+    QString system_native_path = QDir::toNativeSeparators(full_path); // apply system correct separators
+    QString command = QString("explorer /select,\"%1\"").arg(system_native_path);
+
+
+    QProcess::startDetached(command);
+
+    qDebug() << "Double Clicked file: " << file_name;
+    qDebug() << "Double Clicked file full path: " << full_path;
 }

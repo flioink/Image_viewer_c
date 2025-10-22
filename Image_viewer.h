@@ -10,6 +10,7 @@ class QLabel;
 class QHBoxLayout;
 class QListWidgetItem;
 class QSlider;
+class QCheckBox;
 
 class ASCIIConverter;
 class QPixmap;
@@ -53,6 +54,8 @@ public:
 
     void get_ascii_slider_value();
 
+    void get_ascii_color_checkbox_state_changed(bool checked);
+
     void convert_to_grayscale();
 
     
@@ -85,11 +88,13 @@ public:
 
     void get_contour_slider_blur_value();
 
-    void get_blur_slider_value();
-
-    
+    void get_blur_slider_value();   
 
     ~ImageViewer();
+
+private slots:
+    void on_list_widget_item_clicked(QListWidgetItem* item);
+
 private:
     QString m_source_folder;
     QString m_destination_folder;
@@ -141,9 +146,11 @@ private:
     QLabel* m_contour_high_threshold_label;
     QSlider* m_contour_slider_B;
 
-    QLabel* m_ascii_label;
+    QLabel* m_ascii_detail_label;
     QSlider* m_ascii_slider;
+    QCheckBox* m_ascii_color_checkbox;
     int m_ascii_detail = 80;
+    bool m_ascii_colored = false;
     
     int m_contour_low_threshold = 50;
     int m_contour_high_threshold = 150;

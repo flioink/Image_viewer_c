@@ -3,9 +3,6 @@
 #include <opencv2/opencv.hpp>
 using std::string;
 
-
-
-
 class ASCIIConverter
 {
 private:
@@ -16,18 +13,20 @@ private:
 	string m_default_font;
 
 	cv::Mat m_image;
-	
+	cv::Mat bgr_image;
+
+	bool m_colorize_output_image;
 
 	int m_ascii_image_height;
 	int m_ascii_image_width;
 	int m_font_width;
 	int m_font_height;
 
-
 	int m_new_height;
 
 	std::vector<uchar> m_pixel_data;
 	std::vector<uchar> m_new_pixel_data;
+	std::vector<cv::Vec3b> m_pixel_color_data;
 	std::vector<string> m_ascii_layout;
 
 	static constexpr char charset[21] = { '@', '#', '8', '&', 'W', 'M', 'B', 'Q', 'H', 'D',
@@ -36,7 +35,7 @@ private:
 	static constexpr int scale_factor = 256 / (sizeof(charset) - 1);
 
 public:
-	cv::Mat process(const string& path, const int width);
+	cv::Mat process(const string& path, const int width, bool color = false);
 
 	void output_text(const string& path);	
 

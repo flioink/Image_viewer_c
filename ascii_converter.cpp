@@ -11,7 +11,6 @@ using std::min;
 using cv::Size;
 using cv::Scalar;
 using cv::Vec4b;
-
 using cv::Mat;
 
 
@@ -21,20 +20,21 @@ ASCIIConverter::ASCIIConverter(int width) :m_width(width)
 }
 
 
-Mat ASCIIConverter::process(const string& path, const int width)
+Mat ASCIIConverter::process(const string& path, const int width, bool color)
 {   
 	this->m_width = width;
-	// clen the buffers!	
+	this->m_colorize_output_image = color; // set color on or off 
+	// clean the buffers!	
 	m_pixel_data.clear();
 	m_new_pixel_data.clear();
-	m_ascii_layout.clear();  // CRITICAL
+	m_ascii_layout.clear();// CRITICAL
 
 	open_image(path);
 	resize_image();
 	ascii_conversion();	
 	get_ascii_image_dimensions();
-
-	return  create_ascii_image();
+	
+	return  create_ascii_image();	
 }
 
 void ASCIIConverter::output_text(const string& path)
@@ -53,7 +53,7 @@ void ASCIIConverter::open_image(const string& img_path)
 {
 	
 
-	Mat bgr_image = cv::imread(img_path);
+	bgr_image = cv::imread(img_path);
 
 	
 
@@ -65,9 +65,9 @@ void ASCIIConverter::open_image(const string& img_path)
 		return;
 	}
 
-	std::cout << "Image loaded successfully: " << img_path << std::endl;
+	//std::cout << "Image loaded successfully: " << img_path << std::endl;
 	cv::cvtColor(bgr_image, m_image, cv::COLOR_BGR2GRAY);
-	std::cout << "Image converted successfully: " << img_path << std::endl;
+	//std::cout << "Image converted successfully: " << img_path << std::endl;
 }
 
 
@@ -82,8 +82,10 @@ void ASCIIConverter::resize_image()
 	// resize the current m_image to be ready for processing
 	cv::resize(m_image, m_image, cv::Size(m_width, m_new_height), cv::INTER_LINEAR);
 
-	std::cout << "After resize: " << m_image.cols << " x " << m_image.rows << std::endl;
-	std::cout << "m_width: " << m_width << "  m_new_height: " << m_new_height << std::endl;
+	cv::resize(bgr_image, bgr_image, cv::Size(m_width, m_new_height), cv::INTER_LINEAR);
+
+	/*std::cout << "After resize: " << m_image.cols << " x " << m_image.rows << std::endl;
+	std::cout << "m_width: " << m_width << "  m_new_height: " << m_new_height << std::endl;*/
 
 }
 
@@ -94,10 +96,7 @@ Mat ASCIIConverter::create_ascii_image()
 
 	int len = m_ascii_layout.size();
 
-	
-
-
-	int vertical_fudge = 25;
+	int vertical_fudge = 25; // corrects letter offset on top
 
 	// iterate through the ascii layout vector
 	for (int y = 0; y < len; ++y)
@@ -107,15 +106,23 @@ Mat ASCIIConverter::create_ascii_image()
 		for (int x = 0; x < line.length(); ++x)
 		{   
 
-			cv::Point text_position(x * m_font_width, y * m_font_height * CHAR_ASPECT_RATIO + vertical_fudge);
+			cv::Point text_position(x * m_font_width, y * m_font_height * CHAR_ASPECT_RATIO + vertical_fudge);	
 
-			
+			cv::Scalar current_pixel_color(m_pixel_color_data[y * m_width + x][0], m_pixel_color_data[y * m_width + x][1], m_pixel_color_data[y * m_width + x][2]);// BGR format
+
+
 			// putText(image, text, point, fontFace, fontScale, color, thickness, lineType, bottomLeftOrigin)
-			cv::putText(ascii_rebuilt, string(1, line[x]), text_position, cv::FONT_HERSHEY_DUPLEX, 1.0, Scalar(0, 0, 0), 2, 16, false);
+			if (m_colorize_output_image)
+			{
+				cv::putText(ascii_rebuilt, string(1, line[x]), text_position, cv::FONT_HERSHEY_DUPLEX, 1.0, current_pixel_color, 2, 16, false); // string(1, line[x]) is an rvalue string with length of 1
+			}
+			else
+			{
+				cv::putText(ascii_rebuilt, string(1, line[x]), text_position, cv::FONT_HERSHEY_DUPLEX, 1.0, Scalar(0, 0, 0), 2, 16, false);
+			}
+			
 		}
-	}
-
-	
+	}	
 
 	return ascii_rebuilt;
 }
@@ -135,15 +142,12 @@ void ASCIIConverter::ascii_conversion()
 	// clear containers
 	m_pixel_data.clear();
 	m_new_pixel_data.clear();
-	
-
+	m_pixel_color_data.clear();// color container
 
 	// performance optimization
 	m_pixel_data.reserve(m_image.total());
 	m_new_pixel_data.reserve(m_image.total());
 	m_ascii_layout.reserve(m_image.rows);
-
-
 
 	const int charset_size = sizeof(charset);
 	
@@ -153,6 +157,8 @@ void ASCIIConverter::ascii_conversion()
 		for (int col = 0; col < m_image.size().width; ++col)
 		{
 			m_pixel_data.push_back(m_image.at<uchar>(row, col)); 
+
+			m_pixel_color_data.push_back(bgr_image.at<cv::Vec3b>(row, col));
 		}
 
 	}
@@ -237,7 +243,6 @@ void ASCIIConverter::get_ascii_image_dimensions()
 	m_ascii_image_width = m_width * m_font_width;
 	
 	m_ascii_image_height = static_cast<int>(m_new_height * CHAR_ASPECT_RATIO * m_font_height);
-	
 
 }
 
