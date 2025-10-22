@@ -20,6 +20,8 @@
 #include <QApplication>
 #include <opencv2/opencv.hpp>
 #include "ascii_converter.h"
+#include <memory>
+
 
 
 // helper converter from cv::Mat to QPixmap
@@ -94,14 +96,14 @@ ImageViewer::ImageViewer(QWidget* parent)
     QRect screen_geometry = screen->availableGeometry();
     //qDebug() << "Screen geometry: " << screen_geometry;
     m_scaled_max_dimension_y = qMin(screen_geometry.height(), screen_geometry.width()) * 0.93;
-    m_scaled_max_dimension_x = m_scaled_max_dimension_y * 1.31; // adds 21% width to keep most of the display area used 
+    m_scaled_max_dimension_x = m_scaled_max_dimension_y * 1.6; // adds width to keep most of the display area used 
 
     qDebug() << "SCALED DIMENSION: " << m_scaled_max_dimension_y;
     
 
     m_current_index = 0;
 
-    m_ascii_converter = new ImageConverter(120);
+    m_ascii_converter = std::make_unique<ASCIIConverter>(100);
 
     build_UI();
     connect_buttons();    
@@ -157,82 +159,112 @@ void ImageViewer::build_UI()
     m_contour_slider_B = new QSlider(Qt::Horizontal, this);
     m_contour_slider_blur = new QSlider(Qt::Horizontal, this);
 
+    m_contour_blur_label = new QLabel(this);
+    // set initial value
+    m_contour_blur_label->setText(QString("Pre filter blur: %1").arg(m_contour_blur_value));
+    m_contour_slider_blur->setRange(3, 21);
+    m_contour_slider_blur->setValue(m_contour_blur_value);
+    
+    m_contour_low_threshold_label = new QLabel(this);
+    m_contour_low_threshold_label->setText(QString("Low threshold: %1").arg(m_contour_low_threshold));
     m_contour_slider_A->setRange(0, 500);  // set ranges and defaults
     m_contour_slider_A->setValue(m_contour_low_threshold);
-    m_contour_slider_A->setTickPosition(QSlider::TicksBelow);
-    m_contour_slider_A->setTickInterval(50);  // every 50 units
 
+    m_contour_high_threshold_label = new QLabel(this);
+    m_contour_high_threshold_label->setText(QString("High threshold: %1").arg(m_contour_high_threshold));
+    
     m_contour_slider_B->setRange(0, 500);
     m_contour_slider_B->setValue(m_contour_high_threshold);    
-    m_contour_slider_B->setTickPosition(QSlider::TicksBelow);
-    m_contour_slider_B->setTickInterval(50);  // every 50 units
-
-    m_contour_slider_blur->setRange(3, 51);
-    m_contour_slider_blur->setValue(m_contour_blur_value);
-    m_contour_slider_blur->setTickPosition(QSlider::TicksBelow);
-    m_contour_slider_blur->setTickInterval(3);
-
+    
     contour_layout->addWidget(m_contour_button);
-    contour_layout->addWidget(m_contour_slider_A);
-    contour_layout->addWidget(m_contour_slider_B);
+    contour_layout->addWidget(m_contour_blur_label);
     contour_layout->addWidget(m_contour_slider_blur);
+
+    contour_layout->addWidget(m_contour_low_threshold_label);
+    contour_layout->addWidget(m_contour_slider_A);
+    contour_layout->addWidget(m_contour_high_threshold_label);
+    contour_layout->addWidget(m_contour_slider_B);
+    
     contour_group->setLayout(contour_layout);
 
     // blur group
     QGroupBox* blur_group = new QGroupBox("Blur");
     QVBoxLayout* blur_layout = new QVBoxLayout();
+    m_blur_label = new QLabel(this);
+    m_blur_label->setText(QString("Blur value: %1").arg(m_blur_value));
     m_blur_button = new QPushButton("Apply blur", this);
     m_blur_slider = new QSlider(Qt::Horizontal, this);
     m_blur_slider->setRange(3, 51);
-    m_blur_slider->setSingleStep(1);
-    m_blur_slider->setTickPosition(QSlider::TicksBelow);
-    m_blur_slider->setTickInterval(3); 
+    m_blur_slider->setSingleStep(1);    
     m_blur_slider->setValue(m_blur_value);
-
     blur_layout->addWidget(m_blur_button);
+    blur_layout->addWidget(m_blur_label);    
     blur_layout->addWidget(m_blur_slider);
     blur_group->setLayout(blur_layout);
 
     // sharpen layout
     QGroupBox* sharpen_group = new QGroupBox("Sharpen");
     QVBoxLayout* sharpen_layout = new QVBoxLayout();
+    m_sharpen_label = new QLabel(this);
+    m_sharpen_label->setText(QString("Sharpen value: %1").arg(m_sharpen_value, 0, 'f', 1));
     m_sharpen_button = new QPushButton("Apply sharpen", this);
     m_sharpen_slider = new QSlider(Qt::Horizontal, this);
     m_sharpen_slider->setRange(10, 30);
     m_sharpen_slider->setSingleStep(1);
-    m_sharpen_slider->setTickPosition(QSlider::TicksBelow);
-    m_sharpen_slider->setTickInterval(1); 
+    
     m_sharpen_slider->setValue(15);
     sharpen_layout->addWidget(m_sharpen_button);
+    sharpen_layout->addWidget(m_sharpen_label);
     sharpen_layout->addWidget(m_sharpen_slider);
     sharpen_group->setLayout(sharpen_layout);
 
 
     m_invert_button = new QPushButton("Invert", this);
     m_gray_button = new QPushButton("Gray", this);
-    m_ascii_button = new QPushButton("ASCII", this);
+    m_ascii_button = new QPushButton("Apply ASCII", this);
     m_save_button = new QPushButton("Save", this);
+    m_flip_horizontal_button = new QPushButton("Flip horizontal");
+    m_flip_vertical_button = new QPushButton("Flip vertical");
 
     // add widgets to the button layout
-    m_filter_buttons_layout->addStretch(); // acts like a spring
+    m_filter_buttons_layout->addStretch(5); // acts like a spring
+
+    m_filter_buttons_layout->addWidget(m_save_button);
+
+    m_filter_buttons_layout->addStretch(1); // 
+    // ascii 
+    QGroupBox* ascii_group = new QGroupBox("ASCII filter");
+    QVBoxLayout* ascii_layout = new QVBoxLayout();
+    m_ascii_label = new QLabel(this);
+    m_ascii_label->setText(QString("Detail: %1").arg(m_ascii_detail));
+    m_ascii_slider = new QSlider(Qt::Horizontal, this);
+    m_ascii_slider-> setRange(50, 150);
+    m_ascii_slider->setValue(m_ascii_detail);
+    ascii_layout->addWidget(m_ascii_button);
+    ascii_layout->addWidget(m_ascii_label);
+    ascii_layout->addWidget(m_ascii_slider);
+    ascii_group->setLayout(ascii_layout);
+
     m_filter_buttons_layout->addWidget(m_reset_image_button);
     m_filter_buttons_layout->addWidget(contour_group);
     m_filter_buttons_layout->addWidget(blur_group);
     m_filter_buttons_layout->addWidget(sharpen_group);
+    m_filter_buttons_layout->addWidget(ascii_group);
     m_filter_buttons_layout->addWidget(m_invert_button);
     m_filter_buttons_layout->addWidget(m_gray_button);    
-    m_filter_buttons_layout->addWidget(m_ascii_button);
-    m_filter_buttons_layout->addWidget(m_save_button);
-    m_filter_buttons_layout->addStretch(); // pushes buttons to top  
     
-    m_main_area_layout = new QHBoxLayout();
-   
+    
+    m_filter_buttons_layout->addWidget(m_flip_horizontal_button);
+    m_filter_buttons_layout->addWidget(m_flip_vertical_button);
+    m_filter_buttons_layout->addStretch(5); // pushes buttons to top  
+    
+    m_main_area_layout = new QHBoxLayout();   
     m_main_area_layout->addLayout(m_image_layout, 16);
 
-
+    // main layout setup
     master_layout->addLayout(m_file_layout, 1);
     master_layout->addLayout(m_filter_buttons_layout, 1);    
-    master_layout->addLayout(m_main_area_layout, 6);
+    master_layout->addLayout(m_main_area_layout, 9);
     master_layout->setAlignment(Qt::AlignTop);
 
     this->setCentralWidget(central_widget);
@@ -273,10 +305,15 @@ void ImageViewer::connect_buttons()
 
     // ASCII converter button
     connect(m_ascii_button, &QPushButton::clicked, this, &ImageViewer::convert_to_ascii);
+    connect(m_ascii_slider, &QSlider::valueChanged, this, &ImageViewer::get_ascii_slider_value);
 
     // Save button
     connect(m_save_button, &QPushButton::clicked, this, &ImageViewer::save_image);
 
+    // Flip horizontal
+    connect(m_flip_horizontal_button, &QPushButton::clicked, this, &ImageViewer::flip_horizontal);
+
+    connect(m_flip_vertical_button, &QPushButton::clicked, this, &ImageViewer::flip_verical);
     
 }
 
@@ -284,6 +321,8 @@ void ImageViewer::on_open_folder_button_pressed()
 {
     m_file_list_container.clear();  // Clearing the current list of urls
     m_file_list_widget->clear();
+    // reset flip states
+    reset_image_transforms();
 
     // take the output and put it in a QString
     QString folder = QFileDialog::getExistingDirectory(this, "Select a source folder"); 
@@ -326,6 +365,8 @@ void ImageViewer::load_images_to_list()
     
     m_file_list_container.clear();  // Clearing the current list of urls
     m_file_list_widget->clear();
+    // reset flip states
+    reset_image_transforms();
 
     disable_image_controls();
 
@@ -548,6 +589,8 @@ void ImageViewer::load_image(int row)
     m_current_filepath = url;
     QPixmap mypix_qt(url);
 
+    reset_image_transforms();
+
 
     // check if it's loaded in the QPixmap object
     if (!mypix_qt.isNull())
@@ -589,13 +632,9 @@ void ImageViewer::contour()
     int kernel_size = m_contour_blur_value % 2 == 0 ? m_contour_blur_value + 1 : m_contour_blur_value;
     cv::GaussianBlur(pix2contour, pix2contour, cv::Size(kernel_size, kernel_size), 10.0);
 
-
     cv::Mat edges;
     cv::Canny(pix2contour, edges, m_contour_low_threshold, m_contour_high_threshold); //50, 150 default
-
-    /*qDebug() << "Low T: " << m_contour_low_threshold;
-    qDebug() << "High T: " << m_contour_high_threshold;*/
-
+    
     // post filter blur to avoid sharp and pixelated lines
     cv::GaussianBlur(edges, edges, cv::Size(3, 3), 1.5);
 
@@ -619,6 +658,7 @@ void ImageViewer::contour()
 void ImageViewer::get_contour_slider_A_value()
 {
     m_contour_low_threshold = m_contour_slider_A->value();
+    m_contour_low_threshold_label->setText(QString("Low threshold: %1").arg(m_contour_low_threshold));
     contour();
 }
 
@@ -626,6 +666,7 @@ void ImageViewer::get_contour_slider_B_value()
 {
 
     m_contour_high_threshold = m_contour_slider_B->value();
+    m_contour_high_threshold_label->setText(QString("High threshold: %1").arg(m_contour_high_threshold));
     contour();
 }
 
@@ -633,6 +674,7 @@ void ImageViewer::get_contour_slider_blur_value()
 {
 
     m_contour_blur_value = m_contour_slider_blur->value();
+    m_contour_blur_label->setText(QString("Pre filter blur: %1").arg(m_contour_blur_value));
     contour();
 }
 
@@ -641,7 +683,7 @@ void ImageViewer::convert_to_ascii()
     auto file_name = truncate_url_to_image_name(m_current_filepath);
     auto path = m_current_filepath.toStdString();   
 
-    cv::Mat cv_img = m_ascii_converter->process(path);     
+    cv::Mat cv_img = m_ascii_converter->process(path, m_ascii_detail);     
 
     auto pixmap = cv_to_qpixmap_converter(cv_img);
 
@@ -652,6 +694,13 @@ void ImageViewer::convert_to_ascii()
     // set info
     QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
     m_image_info_label->setText("ASCII " + image_info);    
+}
+
+void ImageViewer::get_ascii_slider_value()
+{
+    m_ascii_detail = m_ascii_slider->value();
+    m_ascii_label->setText(QString("Detail: %1").arg(m_ascii_detail));
+    convert_to_ascii();
 }
 
 void ImageViewer::convert_to_grayscale()
@@ -671,6 +720,7 @@ void ImageViewer::convert_to_grayscale()
 void ImageViewer::get_blur_slider_value()
 {
     m_blur_value = m_blur_slider->value();
+    m_blur_label->setText(QString("Blur value: %1").arg(m_blur_value));
 
     blur_image();
 }
@@ -763,6 +813,7 @@ void ImageViewer::sharpen()
 void ImageViewer::get_sharpen_slider_value()
 {
     m_sharpen_value = static_cast<float>(m_sharpen_slider->value() / 10.0f);
+    m_sharpen_label->setText(QString("Sharpen value: %1").arg(m_sharpen_value, 0, 'f', 1));
     sharpen();
 }
 
@@ -785,6 +836,8 @@ void ImageViewer::disable_image_controls()
     m_contour_slider_blur->setEnabled(false);   
     m_blur_slider->setEnabled(false);
     m_sharpen_slider->setEnabled(false);
+    m_flip_horizontal_button->setEnabled(false);
+    m_flip_vertical_button->setEnabled(false);
 
     m_image_display_label->setEnabled(false);
     m_file_list_widget->setEnabled(false);
@@ -807,7 +860,77 @@ void ImageViewer::enable_image_controls()
     m_contour_slider_blur->setEnabled(true);
     m_blur_slider->setEnabled(true);
     m_sharpen_slider->setEnabled(true);
+    m_flip_horizontal_button->setEnabled(true);
+    m_flip_vertical_button->setEnabled(true);
 
     m_image_display_label->setEnabled(true);
     m_file_list_widget->setEnabled(true);
+}
+
+void ImageViewer::reset_image_transforms()
+{
+    m_flipped_horizontally = false;
+    m_flipped_vertically = false;
+}
+
+void ImageViewer::flip_horizontal()
+{    
+
+    if (m_current_image.isNull())
+    {
+        qDebug() << "failed to open image from flip horizontal method";
+        return;
+    }
+
+    if (!m_flipped_horizontally)
+    {       
+        m_flipped_horizontally = true;
+        apply_all_transforms();
+    }
+
+    else
+    {
+        m_flipped_horizontally = false;
+        apply_all_transforms();
+    }
+}
+
+void ImageViewer::flip_verical()
+{
+
+
+    if (m_current_image.isNull())
+    {
+        qDebug() << "failed to open image from flip vertical method";
+        return;
+    }
+
+    if (!m_flipped_vertically)
+    {
+        m_flipped_vertically = true;
+        apply_all_transforms();
+    }
+
+    else
+    {
+        m_flipped_vertically = false;
+        apply_all_transforms();
+    }
+
+}
+
+void ImageViewer::apply_all_transforms()
+{
+
+    QTransform transform;
+    
+    if (m_flipped_horizontally) transform.scale(-1, 1);
+    if (m_flipped_vertically) transform.scale(1, -1);
+
+    auto flipped = m_current_image.transformed(transform);
+
+    m_modified_image = flipped;
+
+    m_image_display_label->setPixmap(scale_image_to_fit(flipped));
+
 }

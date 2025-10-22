@@ -15,16 +15,16 @@ using cv::Vec4b;
 using cv::Mat;
 
 
-ImageConverter::ImageConverter(int width) :m_width(width)
+ASCIIConverter::ASCIIConverter(int width) :m_width(width)
 {
 	this->m_default_font = m_default_font_name;
 }
 
 
-Mat ImageConverter::process(const string& path)
-{
-	// CLEANUP FIRST
-	
+Mat ASCIIConverter::process(const string& path, const int width)
+{   
+	this->m_width = width;
+	// clen the buffers!	
 	m_pixel_data.clear();
 	m_new_pixel_data.clear();
 	m_ascii_layout.clear();  // CRITICAL
@@ -37,7 +37,7 @@ Mat ImageConverter::process(const string& path)
 	return  create_ascii_image();
 }
 
-void ImageConverter::output_text(const string& path)
+void ASCIIConverter::output_text(const string& path)
 {
 	if (m_ascii_layout.empty())
 	{
@@ -49,7 +49,7 @@ void ImageConverter::output_text(const string& path)
 	print_to_file();
 }
 
-void ImageConverter::open_image(const string& img_path)
+void ASCIIConverter::open_image(const string& img_path)
 {
 	
 
@@ -71,7 +71,7 @@ void ImageConverter::open_image(const string& img_path)
 }
 
 
-void ImageConverter::resize_image()
+void ASCIIConverter::resize_image()
 {
 	// calculate the aspect ratio of the image
 	float aspect_ratio = static_cast<float>(m_image.rows) / m_image.cols;// use float cast otherwise ratio is truncated
@@ -88,7 +88,7 @@ void ImageConverter::resize_image()
 }
 
 
-Mat ImageConverter::create_ascii_image()
+Mat ASCIIConverter::create_ascii_image()
 {
 	Mat ascii_rebuilt(m_ascii_image_height, m_ascii_image_width, CV_8UC3, Scalar(255, 255, 255));
 
@@ -121,7 +121,7 @@ Mat ImageConverter::create_ascii_image()
 }
 
 
-void ImageConverter::save_image(const Mat& image_to_save)
+void ASCIIConverter::save_image(const Mat& image_to_save)
 {
 	cv::imwrite("ascii_converted_image.png", image_to_save);
 }
@@ -130,7 +130,7 @@ void ImageConverter::save_image(const Mat& image_to_save)
 // for grayscale 
 // m_pixel_data = m_image.ptr<uchar>(); 
 
-void ImageConverter::ascii_conversion()
+void ASCIIConverter::ascii_conversion()
 {
 	// clear containers
 	m_pixel_data.clear();
@@ -199,7 +199,7 @@ void ImageConverter::ascii_conversion()
 
 }
 
-void ImageConverter::print_to_file()
+void ASCIIConverter::print_to_file()
 {
 	ofstream file;
 	file.open("test_output.txt");
@@ -225,7 +225,7 @@ void ImageConverter::print_to_file()
 
 }
 
-void ImageConverter::get_ascii_image_dimensions()
+void ASCIIConverter::get_ascii_image_dimensions()
 {
 	int base_line;
 	auto text_dimensions = get_text_size("A", cv::FONT_HERSHEY_SIMPLEX, 1.0, 1, &base_line);
@@ -242,13 +242,13 @@ void ImageConverter::get_ascii_image_dimensions()
 }
 
 // get the size of the current font
-Size ImageConverter::get_text_size(const string& text, int fontFace, double fontScale, int thickness, int* baseLine)
+Size ASCIIConverter::get_text_size(const string& text, int fontFace, double fontScale, int thickness, int* baseLine)
 {	
 	return cv::getTextSize(text, fontFace, fontScale, thickness, baseLine);
 }
 
 // saves png with opacity
-void ImageConverter::save_image_with_opacity(const Mat& image)
+void ASCIIConverter::save_image_with_opacity(const Mat& image)
 {
 	//make another Mat image and copy original into it while also switching to BGRA
 	cv::Mat bgra_image;

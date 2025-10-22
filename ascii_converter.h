@@ -6,7 +6,7 @@ using std::string;
 
 
 
-class ImageConverter
+class ASCIIConverter
 {
 private:
 	int m_width;
@@ -36,11 +36,11 @@ private:
 	static constexpr int scale_factor = 256 / (sizeof(charset) - 1);
 
 public:
-	cv::Mat process(const string& path);
+	cv::Mat process(const string& path, const int width);
 
 	void output_text(const string& path);	
 
-	ImageConverter(int width);// constructor	
+	ASCIIConverter(int width);// constructor	
 
 	void open_image(const string& img_path);
 	void resize_image();

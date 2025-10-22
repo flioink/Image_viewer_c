@@ -11,7 +11,7 @@ class QHBoxLayout;
 class QListWidgetItem;
 class QSlider;
 
-class ImageConverter;
+class ASCIIConverter;
 class QPixmap;
 class QImage;
 class Mat;
@@ -51,6 +51,8 @@ public:
 
     void convert_to_ascii();
 
+    void get_ascii_slider_value();
+
     void convert_to_grayscale();
 
     
@@ -68,6 +70,14 @@ public:
     void disable_image_controls();
 
     void enable_image_controls();
+
+    void reset_image_transforms();
+
+    void flip_horizontal();
+
+    void flip_verical();
+
+    void apply_all_transforms();
 
     void get_contour_slider_A_value();
 
@@ -96,7 +106,8 @@ private:
     int m_current_index; // tracking the current image
     int m_number_of_files;
 
-    ImageConverter* m_ascii_converter;
+    //ImageConverter* m_ascii_converter;
+    std::unique_ptr<ASCIIConverter> m_ascii_converter;
     
     //file list layout    
     QVBoxLayout* m_file_layout;
@@ -120,19 +131,34 @@ private:
     QPushButton* m_gray_button;
     QPushButton* m_ascii_button;
     QPushButton* m_save_button;
+    QPushButton* m_flip_horizontal_button;
+    QPushButton* m_flip_vertical_button;
 
+    QLabel* m_contour_blur_label;
+    QSlider* m_contour_slider_blur; 
+    QLabel* m_contour_low_threshold_label;
     QSlider* m_contour_slider_A;
+    QLabel* m_contour_high_threshold_label;
     QSlider* m_contour_slider_B;
-    QSlider* m_contour_slider_blur;
+
+    QLabel* m_ascii_label;
+    QSlider* m_ascii_slider;
+    int m_ascii_detail = 80;
+    
     int m_contour_low_threshold = 50;
     int m_contour_high_threshold = 150;
     int m_contour_blur_value = 3;
 
+    QLabel* m_blur_label;
     QSlider* m_blur_slider;
     int m_blur_value = 3;
 
+    QLabel* m_sharpen_label;
     QSlider* m_sharpen_slider;
     float m_sharpen_value = 1.5f;
+
+    bool m_flipped_horizontally = false;
+    bool m_flipped_vertically = false;
     
     
 };
