@@ -30,14 +30,14 @@ private:
 	std::vector<string> m_ascii_layout;
 
 	static constexpr char charset[21] = { '@', '#', '8', '&', 'W', 'M', 'B', 'Q', 'H', 'D',
-									'X', 'Y', 'O', 'C', 'I', '*', '!', ';', ':', '.', ' ' };// 21 symbols charset
+									'X', 'Y', 'O', 'C', 'I', '*', '!', ';', ':', '_', '.' };// 21 symbols charset
 
 	static constexpr int scale_factor = 256 / (sizeof(charset) - 1);
 
 public:
 	cv::Mat process(const string& path, const int width, bool color = false);
 
-	void output_text(const string& path);	
+	void output_text(const string& src_path, const string& dest_path);
 
 	ASCIIConverter(int width);// constructor	
 
@@ -50,7 +50,7 @@ public:
 	void save_image(const cv::Mat& image_to_save);
 	
 	void ascii_conversion();
-	void print_to_file();
+	void write_to_file(const string& dest_path);
 
 	void save_image_with_opacity(const cv::Mat& image);
 

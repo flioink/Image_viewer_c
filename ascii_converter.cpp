@@ -19,7 +19,6 @@ ASCIIConverter::ASCIIConverter(int width) :m_width(width)
 	this->m_default_font = m_default_font_name;
 }
 
-
 Mat ASCIIConverter::process(const string& path, const int width, bool color)
 {   
 	this->m_width = width;
@@ -37,16 +36,20 @@ Mat ASCIIConverter::process(const string& path, const int width, bool color)
 	return  create_ascii_image();	
 }
 
-void ASCIIConverter::output_text(const string& path)
+void ASCIIConverter::output_text(const string& src_path, const string& dest_path)
 {
 	if (m_ascii_layout.empty())
 	{
-		open_image(path);
+		m_pixel_data.clear();
+		m_new_pixel_data.clear();
+		m_ascii_layout.clear();
+
+		open_image(src_path);
 		resize_image();
 		ascii_conversion();
 	}
 
-	print_to_file();
+	write_to_file(dest_path);
 }
 
 void ASCIIConverter::open_image(const string& img_path)
@@ -205,10 +208,10 @@ void ASCIIConverter::ascii_conversion()
 
 }
 
-void ASCIIConverter::print_to_file()
+void ASCIIConverter::write_to_file(const string& dest_path)
 {
 	ofstream file;
-	file.open("test_output.txt");
+	file.open(dest_path);
 
 	if (!file.is_open())
 	{
@@ -216,17 +219,22 @@ void ASCIIConverter::print_to_file()
 		return;
 	}
 
+	if (!m_ascii_layout.empty())
+	{
 
-	int new_data_limit = m_ascii_layout.size(); // class member for easy access
+		int new_data_limit = m_ascii_layout.size(); // class member for easy access
 
-	for (int i = 0; i < new_data_limit; ++i)
-	{	
-		
-		file << m_ascii_layout[i] << endl;
+		for (int i = 0; i < new_data_limit; ++i)
+		{
 
-		// print to console
-		cout << m_ascii_layout[i] << endl;
+			file << m_ascii_layout[i] << endl;
 
+		}
+	}
+
+	else
+	{
+		return;
 	}
 
 }
@@ -255,7 +263,7 @@ Size ASCIIConverter::get_text_size(const string& text, int fontFace, double font
 // saves png with opacity
 void ASCIIConverter::save_image_with_opacity(const Mat& image)
 {
-	//make another Mat image and copy original into it while also switching to BGRA
+	// make another Mat image and copy original into it while also adding an alpha channel
 	cv::Mat bgra_image;
 	cv::cvtColor(image, bgra_image, cv::COLOR_BGR2BGRA);
 	int opactity_limit = 245;
@@ -272,6 +280,7 @@ void ASCIIConverter::save_image_with_opacity(const Mat& image)
 			// filter the pixel values - set alpha value to 0 for every pixel where value is above threshold
 			if (pixel[0] > opactity_limit && pixel[1] > opactity_limit && pixel[2] > opactity_limit)
 			{
+				// alpha channel 
 				pixel[3] = 0; // set alpha to 0
 			}
 		}

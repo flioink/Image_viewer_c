@@ -23,6 +23,8 @@
 #include "ascii_converter.h"
 #include "QProcess"
 #include <memory>
+#include <random>
+#include <QOperatingSystemVersion>
 
 
 
@@ -224,9 +226,12 @@ void ImageViewer::build_UI()
     m_invert_button = new QPushButton("Invert", this);
     m_gray_button = new QPushButton("Gray", this);
     m_ascii_button = new QPushButton("Apply ASCII", this);
+    m_export_ascii_text_button = new QPushButton("Export ASCII text", this);
     m_save_button = new QPushButton("Save", this);
     m_flip_horizontal_button = new QPushButton("Flip horizontal");
     m_flip_vertical_button = new QPushButton("Flip vertical");
+    m_random_image_button = new QPushButton("Get Random Image", this);
+
 
     // add widgets to the button layout
     m_filter_buttons_layout->addStretch(5); // acts like a spring
@@ -246,6 +251,7 @@ void ImageViewer::build_UI()
     m_ascii_slider->setValue(m_ascii_detail);
     ascii_layout->addWidget(m_ascii_button);
     ascii_layout->addWidget(m_ascii_color_checkbox);
+    ascii_layout->addWidget(m_export_ascii_text_button);
     ascii_layout->addWidget(m_ascii_detail_label);
     ascii_layout->addWidget(m_ascii_slider);
     ascii_group->setLayout(ascii_layout);
@@ -261,7 +267,8 @@ void ImageViewer::build_UI()
     
     m_filter_buttons_layout->addWidget(m_flip_horizontal_button);
     m_filter_buttons_layout->addWidget(m_flip_vertical_button);
-    m_filter_buttons_layout->addStretch(5); // pushes buttons to top  
+    m_filter_buttons_layout->addWidget(m_random_image_button);
+    m_filter_buttons_layout->addStretch(5); // pushes buttons to top      
     
     m_main_area_layout = new QHBoxLayout();   
     m_main_area_layout->addLayout(m_image_layout, 16);
@@ -286,16 +293,16 @@ void ImageViewer::connect_buttons()
     connect(m_rescan_folder_button, &QPushButton::clicked, this, &ImageViewer::load_images_to_list);
 
     // Reset image
-    connect(m_reset_image_button, &QPushButton::clicked, this, &ImageViewer::reset_image);
+    connect(m_reset_image_button, &QPushButton::clicked, this, &ImageViewer::on_reset_image_button_pressed);
 
     // Contour filter 
-    connect(m_contour_button, &QPushButton::clicked, this, &ImageViewer::contour);   
+    connect(m_contour_button, &QPushButton::clicked, this, &ImageViewer::on_contour_button_pressed);   
     connect(m_contour_slider_A, &QSlider::valueChanged, this, &ImageViewer::get_contour_slider_A_value);
     connect(m_contour_slider_B, &QSlider::valueChanged, this, &ImageViewer::get_contour_slider_B_value);
     connect(m_contour_slider_blur, &QSlider::valueChanged, this, &ImageViewer::get_contour_slider_blur_value);
 
     // Grayscale filter
-    connect(m_gray_button, &QPushButton::clicked, this, &ImageViewer::convert_to_grayscale);
+    connect(m_gray_button, &QPushButton::clicked, this, &ImageViewer::on_convert_to_grayscale_button_pressed);
 
     // Blur filter
     connect(m_blur_button, &QPushButton::clicked, this, &ImageViewer::blur_image);
@@ -309,7 +316,8 @@ void ImageViewer::connect_buttons()
     connect(m_invert_button, &QPushButton::clicked, this, &ImageViewer::invert_image);
 
     // ASCII converter button
-    connect(m_ascii_button, &QPushButton::clicked, this, &ImageViewer::convert_to_ascii);
+    connect(m_ascii_button, &QPushButton::clicked, this, &ImageViewer::on_convert_to_ascii_button_pressed);
+    connect(m_export_ascii_text_button, &QPushButton::clicked, this, &ImageViewer::on_export_ascii_text_button_pressed);
     connect(m_ascii_slider, &QSlider::valueChanged, this, &ImageViewer::get_ascii_slider_value);
 
     // Save button
@@ -325,6 +333,8 @@ void ImageViewer::connect_buttons()
     connect(m_file_list_widget, &QListWidget::itemDoubleClicked, this, &ImageViewer::on_list_widget_item_clicked);
 
     connect(m_ascii_color_checkbox, &QCheckBox::toggled, this, &ImageViewer::get_ascii_color_checkbox_state_changed);
+
+    connect(m_random_image_button, &QPushButton::clicked, this, &ImageViewer::on_get_random_image_button_pressed);
     
 }
 
@@ -575,6 +585,8 @@ void ImageViewer::wheelEvent(QWheelEvent* event)
 
             m_file_list_widget->setCurrentRow(m_current_index);// set list widget marker to current index
 
+            clear_modified_image();
+
 
         }
         else // rotating the mouse wheel towards you is considered DOWN
@@ -585,6 +597,8 @@ void ImageViewer::wheelEvent(QWheelEvent* event)
             m_current_filepath = m_file_list_container[m_current_index];
 
             m_file_list_widget->setCurrentRow(m_current_index);// set list widget marker to current index
+
+            clear_modified_image();
 
 
         }
@@ -629,14 +643,15 @@ void ImageViewer::load_image(int row)
     }
 }
 
-void ImageViewer::reset_image()
+void ImageViewer::on_reset_image_button_pressed()
 {
-    load_image(m_current_index);    
+    load_image(m_current_index);
+    clear_modified_image();
 }
 
 
 // FILTERS
-void ImageViewer::contour()
+void ImageViewer::on_contour_button_pressed()
 {    
             
     cv::Mat pix2contour = cv::imread(m_current_filepath.toStdString());    
@@ -674,7 +689,7 @@ void ImageViewer::get_contour_slider_A_value()
 {
     m_contour_low_threshold = m_contour_slider_A->value();
     m_contour_low_threshold_label->setText(QString("Low threshold: %1").arg(m_contour_low_threshold));
-    contour();
+    on_contour_button_pressed();
 }
 
 void ImageViewer::get_contour_slider_B_value()
@@ -682,7 +697,7 @@ void ImageViewer::get_contour_slider_B_value()
 
     m_contour_high_threshold = m_contour_slider_B->value();
     m_contour_high_threshold_label->setText(QString("High threshold: %1").arg(m_contour_high_threshold));
-    contour();
+    on_contour_button_pressed();
 }
 
 void ImageViewer::get_contour_slider_blur_value()
@@ -690,10 +705,10 @@ void ImageViewer::get_contour_slider_blur_value()
 
     m_contour_blur_value = m_contour_slider_blur->value();
     m_contour_blur_label->setText(QString("Pre filter blur: %1").arg(m_contour_blur_value));
-    contour();
+    on_contour_button_pressed();
 }
 
-void ImageViewer::convert_to_ascii()
+void ImageViewer::on_convert_to_ascii_button_pressed()
 {
     auto file_name = truncate_url_to_image_name(m_current_filepath);
     auto path = m_current_filepath.toStdString();   
@@ -708,14 +723,18 @@ void ImageViewer::convert_to_ascii()
 
     // set info
     QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
-    m_image_info_label->setText("ASCII " + image_info);    
+    m_image_info_label->setText("ASCII " + image_info);
+
+    // m_export_ascii_text_button->setEnabled(true);
+
+    //m_ascii_converter->output_text(path);
 }
 
 void ImageViewer::get_ascii_slider_value()
 {
     m_ascii_detail = m_ascii_slider->value();
     m_ascii_detail_label->setText(QString("Detail: %1").arg(m_ascii_detail));
-    convert_to_ascii();
+    on_convert_to_ascii_button_pressed();
 }
 
 void ImageViewer::get_ascii_color_checkbox_state_changed(bool checked)
@@ -723,7 +742,7 @@ void ImageViewer::get_ascii_color_checkbox_state_changed(bool checked)
     m_ascii_colored = checked;
 }
 
-void ImageViewer::convert_to_grayscale()
+void ImageViewer::on_convert_to_grayscale_button_pressed()
 {
     cv::Mat pix2gray = cv::imread(m_current_filepath.toStdString());
     cv::cvtColor(pix2gray, pix2gray, cv::COLOR_RGB2GRAY); // in place conversion
@@ -781,13 +800,16 @@ void ImageViewer::invert_image()
     m_image_info_label->setText("Invert " + image_info);
 }
 
-
+void ImageViewer::clear_modified_image()
+{
+    m_modified_image = QPixmap();
+}
 
 void ImageViewer::save_image()
 {
-    QString default_save_path = QDir::homePath() + "/modified";
+    
 
-    QString file_path = QFileDialog::getSaveFileName(this, "Save Image", default_save_path, "Images (*.png *.jpg *.jpeg *.bmp)");
+    QString file_path = QFileDialog::getSaveFileName(this, "Save Image", m_source_folder + "/saved_image", "Images (*.png *.jpg *.jpeg *.bmp)");
 
     if (!file_path.isEmpty()) 
     {
@@ -856,6 +878,8 @@ void ImageViewer::disable_image_controls()
     m_flip_horizontal_button->setEnabled(false);
     m_flip_vertical_button->setEnabled(false);
     m_ascii_slider->setEnabled(false);
+    m_random_image_button->setEnabled(false);
+    m_export_ascii_text_button->setEnabled(false);
 
     m_image_display_label->setEnabled(false);
     m_file_list_widget->setEnabled(false);
@@ -881,6 +905,8 @@ void ImageViewer::enable_image_controls()
     m_flip_horizontal_button->setEnabled(true);
     m_flip_vertical_button->setEnabled(true);
     m_ascii_slider->setEnabled(true);
+    m_random_image_button->setEnabled(true);
+    m_export_ascii_text_button->setEnabled(true);
 
     m_image_display_label->setEnabled(true);
     m_file_list_widget->setEnabled(true);
@@ -956,6 +982,8 @@ void ImageViewer::apply_all_transforms()
 
 void ImageViewer::on_list_widget_item_clicked(QListWidgetItem* item)
 {
+    clear_modified_image();
+
     if(!item)
     {
         return;
@@ -963,14 +991,67 @@ void ImageViewer::on_list_widget_item_clicked(QListWidgetItem* item)
 
     QString file_name = item->text();
     QDir dir(m_source_folder);
-    QString full_path = dir.absoluteFilePath(file_name);    
-
-    QString system_native_path = QDir::toNativeSeparators(full_path); // apply system correct separators
-    QString command = QString("explorer /select,\"%1\"").arg(system_native_path);
+    QString full_path = dir.absoluteFilePath(file_name); 
 
 
-    QProcess::startDetached(command);
+    auto os = QOperatingSystemVersion::current();
 
-    qDebug() << "Double Clicked file: " << file_name;
-    qDebug() << "Double Clicked file full path: " << full_path;
+
+    // to be able to open a folder and select the file on different OS
+    if (os.type() == QOperatingSystemVersion::Windows) 
+    {
+        QString system_native_path = QDir::toNativeSeparators(full_path); // apply system correct separators
+        QString command = QString("explorer /select,\"%1\"").arg(system_native_path);
+
+        QProcess::startDetached(command);       
+    }
+
+    else if (os.type() == QOperatingSystemVersion::MacOS) 
+    {
+        QProcess::startDetached(QString("open -R \"%1\"").arg(file_name));
+    }
+    else 
+
+    { // Linux/Unix
+        QProcess::startDetached(QString("xdg-open \"%1\"").arg(QFileInfo(file_name).path()));
+    }
+    
+}
+
+void ImageViewer::on_get_random_image_button_pressed()
+{
+    clear_modified_image();
+
+    if (m_number_of_files > 0)
+    {
+        std::random_device rd; // Seed
+        std::mt19937 gen(rd()); // Mersenne Twister engine
+        std::uniform_int_distribution<> dist(0, m_number_of_files); 
+
+        int random_index = dist(gen);
+
+        m_current_index = random_index;
+
+        qDebug() << random_index;
+
+        load_image(m_current_index);
+    }
+
+
+   
+}
+
+void ImageViewer::on_export_ascii_text_button_pressed()
+{    
+    on_convert_to_ascii_button_pressed();
+
+    QString directory = QFileDialog::getSaveFileName(this, "Save the ASCII art", m_source_folder + "/ascii_art.txt");
+
+    if (!directory.isEmpty())
+    {        
+        m_ascii_converter->output_text(m_current_filepath.toStdString(), directory.toStdString());
+    }
+
+    //m_export_ascii_text_button->setEnabled(false);
+
 }

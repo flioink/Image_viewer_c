@@ -46,23 +46,25 @@ public:
     void load_image(int row);
 
     // filters
-    void contour();
+    void on_contour_button_pressed();
 
-    void reset_image();
+    void on_reset_image_button_pressed();
 
-    void convert_to_ascii();
+    void on_convert_to_ascii_button_pressed();
 
     void get_ascii_slider_value();
 
     void get_ascii_color_checkbox_state_changed(bool checked);
 
-    void convert_to_grayscale();
+    void on_convert_to_grayscale_button_pressed();
 
     
 
     void blur_image();
 
     void invert_image();
+
+    void clear_modified_image();
 
     void save_image();
 
@@ -81,6 +83,10 @@ public:
     void flip_verical();
 
     void apply_all_transforms();
+
+    void on_get_random_image_button_pressed();
+
+    void on_export_ascii_text_button_pressed();
 
     void get_contour_slider_A_value();
 
@@ -135,9 +141,11 @@ private:
     QPushButton* m_invert_button;
     QPushButton* m_gray_button;
     QPushButton* m_ascii_button;
+    QPushButton* m_export_ascii_text_button;
     QPushButton* m_save_button;
     QPushButton* m_flip_horizontal_button;
     QPushButton* m_flip_vertical_button;
+    QPushButton* m_random_image_button;
 
     QLabel* m_contour_blur_label;
     QSlider* m_contour_slider_blur; 
