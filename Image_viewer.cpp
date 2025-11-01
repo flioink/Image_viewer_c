@@ -247,7 +247,7 @@ void ImageViewer::build_UI()
     m_ascii_detail_label = new QLabel(this);
     m_ascii_detail_label->setText(QString("Detail: %1").arg(m_ascii_detail));
     m_ascii_slider = new QSlider(Qt::Horizontal, this);
-    m_ascii_slider-> setRange(50, 150);
+    m_ascii_slider-> setRange(55, 220); // slider setting
     m_ascii_slider->setValue(m_ascii_detail);
     ascii_layout->addWidget(m_ascii_button);
     ascii_layout->addWidget(m_ascii_color_checkbox);
@@ -710,6 +710,8 @@ void ImageViewer::get_contour_slider_blur_value()
 
 void ImageViewer::on_convert_to_ascii_button_pressed()
 {
+    disable_image_controls();
+
     auto file_name = truncate_url_to_image_name(m_current_filepath);
     auto path = m_current_filepath.toStdString();   
 
@@ -723,18 +725,18 @@ void ImageViewer::on_convert_to_ascii_button_pressed()
 
     // set info
     QString image_info = set_info_string(m_current_index + 1, m_number_of_files, file_name);
-    m_image_info_label->setText("ASCII " + image_info);
+    m_image_info_label->setText("ASCII " + image_info);    
 
-    // m_export_ascii_text_button->setEnabled(true);
-
-    //m_ascii_converter->output_text(path);
+    enable_image_controls();
 }
 
 void ImageViewer::get_ascii_slider_value()
 {
     m_ascii_detail = m_ascii_slider->value();
     m_ascii_detail_label->setText(QString("Detail: %1").arg(m_ascii_detail));
+    
     on_convert_to_ascii_button_pressed();
+   
 }
 
 void ImageViewer::get_ascii_color_checkbox_state_changed(bool checked)
@@ -1022,11 +1024,11 @@ void ImageViewer::on_get_random_image_button_pressed()
 {
     clear_modified_image();
 
-    if (m_number_of_files > 0)
+    if (m_number_of_files > 1)
     {
         std::random_device rd; // Seed
         std::mt19937 gen(rd()); // Mersenne Twister engine
-        std::uniform_int_distribution<> dist(0, m_number_of_files); 
+        std::uniform_int_distribution<> dist(0, m_number_of_files - 1); 
 
         int random_index = dist(gen);
 

@@ -44,7 +44,7 @@ public:
 	void open_image(const string& img_path);
 	void resize_image();
 	void get_ascii_image_dimensions();
-	cv::Size get_text_size(const string& text, int fontFace, double fontScale, int thickness, int* baseLine);
+	cv::Size get_text_size(const string& text, int font_face, double font_scale, int thickness, int* base_line);
 	
 	cv::Mat create_ascii_image();
 	void save_image(const cv::Mat& image_to_save);

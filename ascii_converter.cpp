@@ -222,7 +222,7 @@ void ASCIIConverter::write_to_file(const string& dest_path)
 	if (!m_ascii_layout.empty())
 	{
 
-		int new_data_limit = m_ascii_layout.size(); // class member for easy access
+		int new_data_limit = m_ascii_layout.size(); 
 
 		for (int i = 0; i < new_data_limit; ++i)
 		{
@@ -255,9 +255,9 @@ void ASCIIConverter::get_ascii_image_dimensions()
 }
 
 // get the size of the current font
-Size ASCIIConverter::get_text_size(const string& text, int fontFace, double fontScale, int thickness, int* baseLine)
+Size ASCIIConverter::get_text_size(const string& text, int font_face, double font_scale, int thickness, int* base_line)
 {	
-	return cv::getTextSize(text, fontFace, fontScale, thickness, baseLine);
+	return cv::getTextSize(text, font_face, font_scale, thickness, base_line);
 }
 
 // saves png with opacity
